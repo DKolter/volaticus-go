@@ -1,22 +1,21 @@
 # Simple Makefile for a Go project
 
 # Build the application
-all: build test
-templ-install:
-	@powershell -ExecutionPolicy Bypass -Command "if (Get-Command templ -ErrorAction SilentlyContinue) { \
-		; \
-	} else { \
-		Write-Output 'Installing templ...'; \
-		go install github.com/a-h/templ/cmd/templ@latest; \
-		if (-not (Get-Command templ -ErrorAction SilentlyContinue)) { \
-			Write-Output 'templ installation failed. Exiting...'; \
-			exit 1; \
-		} else { \
-			Write-Output 'templ installed successfully.'; \
-		} \
-	}"
+all: dev-install build test
+dev-install:
+	@echo Installing dev dependecies
+	@echo Installing air...
+	go install github.com/air-verse/air@latest
 
-build: templ-install
+	@echo Installing templ...
+	go install github.com/a-h/templ/cmd/templ@latest
+
+	@echo Installing golangci-lint
+	go install github.com/golangci/golangci-lint/cmd/golangci-lint@v1.62.2
+
+	@echo Make sure installed binaries are in PATH
+
+build:
 	@echo "Building..."
 	@templ generate
 	
@@ -49,14 +48,7 @@ clean:
 
 # Live Reload
 watch:
-	@powershell -ExecutionPolicy Bypass -Command "if (Get-Command air -ErrorAction SilentlyContinue) { \
-		air; \
-		Write-Output 'Watching...'; \
-	} else { \
-		Write-Output 'Installing air...'; \
-		go install github.com/air-verse/air@latest; \
-		air; \
-		Write-Output 'Watching...'; \
-	}"
+	@echo "Watching..."
+	@air
 
-.PHONY: all build run test clean watch docker-run docker-down itest templ-install
+.PHONY: all build run test clean watch docker-run docker-down itest dev-install
