@@ -1,0 +1,48 @@
+package components
+
+templ TokenModal() {
+	<div
+		id="tokenModal"
+		class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center"
+		_="on click if event.target.id == 'tokenModal' hide me"
+	>
+		<div class="bg-gray-800 rounded-lg p-6 w-full max-w-md">
+			<h3 class="text-xl font-semibold text-white mb-4">Generate New API Token</h3>
+			<form
+				hx-post="/settings/token-modal"
+				hx-swap="afterend"
+				hx-ext="json-enc"
+				hx-target="#tokenResults"
+			>
+
+				<div class="mb-4">
+					<label for="tokenName" class="block text-sm font-medium text-gray-400 mb-2">Token Name</label>
+					<input
+						type="text"
+						id="tokenName"
+						name="name"
+						class="w-full bg-gray-700 border border-gray-600 rounded-md px-3 py-2 text-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
+						placeholder="e.g. ShareX Upload"
+						required
+					/>
+				</div>
+				<div id="tokenResults"></div>
+				<div class="flex justify-end space-x-3">
+					<button
+						type="button"
+						onclick="this.closest('#tokenModal').remove()"
+						class="px-4 py-2 text-sm font-medium text-gray-400 hover:text-white bg-gray-700 rounded-md"
+					>
+						Cancel
+					</button>
+					<button
+						type="submit"
+						class="px-4 py-2 text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 rounded-md"
+					>
+						Generate Token
+					</button>
+				</div>
+			</form>
+		</div>
+	</div>
+}

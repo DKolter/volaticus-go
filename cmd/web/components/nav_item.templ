@@ -1,0 +1,12 @@
+package components
+
+templ NavItem(href string, icon templ.Component, label string) {
+    <li>
+        <a href={ templ.SafeURL(href) } class="flex items-center gap-x-2 rounded-lg p-2 lg:p-3 text-sm font-medium text-gray-300 transition-all duration-200 hover:bg-gray-800 hover:text-white">
+            <div class="h-6 w-6 lg:h-6 lg:w-6">
+                @icon
+            </div>
+            <span class="hidden lg:block">{ label }</span>
+        </a>
+    </li>
+}
