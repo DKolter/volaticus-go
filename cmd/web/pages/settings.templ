@@ -1,0 +1,61 @@
+package pages
+
+import "volaticus-go/cmd/web/components"
+import "volaticus-go/internal/auth"
+
+import userctx "volaticus-go/internal/context"
+
+templ SettingsPage(tokens []*auth.APIToken) {
+	@DashboardLayout() {
+		<div class="px-4 py-6 sm:px-0">
+			<h1 class="text-2xl font-semibold text-white">Settings</h1>
+			<div class="mt-4">
+				if user := userctx.GetUserFromContext(ctx); user != nil {
+					<div class="bg-gray-800 rounded-lg p-4 space-y-3">
+						<div class="flex items-center space-x-2">
+							@components.UserIcon()
+							<span class="text-gray-400 text-sm font-medium">Username:</span>
+							<span class="text-white text-sm">{ user.Username }</span>
+						</div>
+						<div class="flex items-center space-x-2">
+							@components.IdCardIcon()
+							<span class="text-gray-400 text-sm font-medium">ID:</span>
+							<code class="text-sm bg-gray-700 px-2 py-1 rounded text-indigo-400 font-mono">{ user.ID.String() }</code>
+						</div>
+					</div>
+					<!-- API Tokens Section -->
+					<div class="space-y-4">
+						<div class="flex items-center justify-between">
+							<button
+								hx-get="/settings/token-modal"
+								hx-target="#modal-content"
+								hx-swap="innerHTML"
+								hx-trigger="click"
+								class="bg-indigo-600 text-white px-4 py-2 rounded-md hover:bg-indigo-700 transition-colors"
+							>
+								Generate New Token
+							</button>
+						</div>
+						<!-- Modal Container -->
+						<div id="modal-content"></div>
+						<!-- Tokens Table -->
+                        @components.TokenTable(tokens)
+					</div>
+				}
+			</div>
+		</div>
+	}
+}
+
+// TODO: Move to components, if we need it for other pages too
+templ FormMessage(message string, isError bool) {
+	if isError {
+		<div class="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative" role="alert">
+			<span class="block sm:inline">{ message }</span>
+		</div>
+	} else {
+		<div class="bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded relative" role="alert">
+			<span class="block sm:inline">{ message }</span>
+		</div>
+	}
+}

@@ -34,3 +34,6 @@ bin/
 # OS X generated file
 .DS_Store
 
+# Tailwind CSS
+cmd/web/assets/css/output.css
+tailwindcss
