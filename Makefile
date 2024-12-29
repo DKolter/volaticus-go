@@ -17,8 +17,13 @@ templ-install:
 		fi; \
 	fi
 tailwind-install:
-	@if [ ! -f tailwindcss ]; then curl -sL https://github.com/tailwindlabs/tailwindcss/releases/latest/download/tailwindcss-linux-x64 -o tailwindcss; fi
-	
+	@if [ ! -f tailwindcss ]; then \
+        if [ "$$(uname)" = "Darwin" ]; then \
+            curl -sL https://github.com/tailwindlabs/tailwindcss/releases/latest/download/tailwindcss-macos-x64 -o tailwindcss; \
+        else \
+            curl -sL https://github.com/tailwindlabs/tailwindcss/releases/latest/download/tailwindcss-linux-x64 -o tailwindcss; \
+        fi \
+    fi
 	@chmod +x tailwindcss
 
 build: tailwind-install templ-install

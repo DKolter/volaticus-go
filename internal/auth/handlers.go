@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"log"
 	"net/http"
+	"os"
 
 	"volaticus-go/internal/context"
 	"volaticus-go/internal/user"
@@ -55,13 +56,19 @@ func (h *Handler) HandleLogin(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	env := os.Getenv("APP_ENV")
+	var https bool
+	if env == "" || env == "development" {
+		https = false
+	}
+
 	// Set JWT cookie
 	http.SetCookie(w, &http.Cookie{
 		Name:     "jwt",
 		Value:    token,
 		Path:     "/",
 		HttpOnly: true,
-		Secure:   true, // Only send over HTTPS
+		Secure:   https, // Only send over HTTPS
 		SameSite: http.SameSiteStrictMode,
 		MaxAge:   3600 * 24, // 24 hours TODO: Implement token refresh
 	})
