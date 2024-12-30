@@ -3,6 +3,7 @@ package shortener
 import (
 	"crypto/rand"
 	"fmt"
+	"log"
 	"math/big"
 	"net/url"
 	"time"
@@ -71,7 +72,7 @@ func (s *Service) GetOriginalURL(shortCode string) (string, error) {
 	// Increment access count
 	if err := s.repo.IncrementAccessCount(shortenedURL.ID); err != nil {
 		// Log error but don't return error
-		fmt.Printf("Error incrementing access count: %v\n", err)
+		log.Printf("Error incrementing access count: %v\n", err)
 	}
 
 	return shortenedURL.OriginalURL, nil
