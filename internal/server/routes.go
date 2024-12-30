@@ -1,8 +1,10 @@
 package server
 
 import (
+	"fmt"
 	"net/http"
 	"volaticus-go/cmd/web"
+	"volaticus-go/internal/shortener"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
@@ -78,6 +80,20 @@ func (s *Server) RegisterRoutes() http.Handler {
 			r.Post("/upload", s.handleFileUpload)
 		})
 	})
+
+	// URL Shortener routes
+	shortenerService := shortener.NewService(
+		shortener.NewPostgresRepository(s.db.DB()),
+		fmt.Sprintf("http://localhost:%d", s.config.Port), // TODO: get from config
+	)
+	shortenerHandler := shortener.NewHandler(shortenerService)
+
+	// Frontend route
+	r.Get("/url-short", s.handleUrlShort)
+
+	// API/Form routes
+	r.Post("/url-short/shorten", shortenerHandler.HandleShortenForm)
+	r.Get("/{shortCode}", shortenerHandler.HandleRedirect)
 
 	return r
 }

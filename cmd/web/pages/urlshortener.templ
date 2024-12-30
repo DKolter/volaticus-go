@@ -1,17 +1,41 @@
 package pages
+
 templ UrlShortPage() {
     @DashboardLayout() {
         <div class="px-4 py-6 sm:px-0">
-            <h1 class="text-2xl font-semibold text-white">URL Shortener</h1>
-            <div class="mt-4">
-                <form class="max-w-md" hx-post="/url-shortener/shorten" hx-swap="outerHTML">
-                    <input type="url" name="url" placeholder="Enter URL to shorten" 
-                        class="block w-full rounded-md border-0 bg-white/5 py-1.5 text-white shadow-sm ring-1 ring-inset ring-white/10 focus:ring-2 focus:ring-inset focus:ring-indigo-500 sm:text-sm sm:leading-6"/>
-                    <button type="submit" 
-                        class="mt-4 rounded-md bg-indigo-500 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-indigo-400">
+            <h1 class="text-2xl font-semibold text-white mb-6">URL Shortener</h1>
+            <div class="max-w-2xl">
+                <form
+                    class="space-y-4"
+                    hx-post="/url-short/shorten"
+                    hx-target="#shortener-result"
+                    hx-swap="innerHTML">
+                    <div>
+                        <label for="url" class="block text-sm font-medium leading-6 text-gray-300">
+                            Enter URL to shorten
+                        </label>
+                        <div class="mt-2">
+                            <input
+                                type="url"
+                                name="url"
+                                id="url"
+                                required
+                                placeholder="https://example.com/very/long/url/that/needs/shortening"
+                                class="block w-full rounded-md border-0 bg-white/5 py-1.5 text-white shadow-sm ring-1 ring-inset ring-white/10 focus:ring-2 focus:ring-inset focus:ring-indigo-500 sm:text-sm sm:leading-6"
+                            />
+                        </div>
+                        <p class="mt-2 text-sm text-gray-500">Enter a valid URL including http:// or https://</p>
+                    </div>
+                    <button
+                        type="submit"
+                        class="rounded-md bg-indigo-500 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-indigo-400"
+                    >
                         Shorten URL
                     </button>
                 </form>
+
+                <!-- Results will be inserted here -->
+                <div id="shortener-result"></div>
             </div>
         </div>
     }
