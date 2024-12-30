@@ -35,7 +35,10 @@ func (h *Handler) HandleCreateShortURL(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(response)
+	err = json.NewEncoder(w).Encode(response)
+	if err != nil {
+		return
+	}
 }
 
 // HandleRedirect handles the redirection from short URLs to original URLs
@@ -80,7 +83,7 @@ func (h *Handler) HandleShortenForm(w http.ResponseWriter, r *http.Request) {
 	if r.Header.Get("HX-Request") == "true" {
 		// Render result component
 		w.Header().Set("Content-Type", "text/html")
-		fmt.Fprintf(w, `<div class="mt-4 p-4 bg-gray-800 rounded-lg border border-gray-700">
+		_, err := fmt.Fprintf(w, `<div class="mt-4 p-4 bg-gray-800 rounded-lg border border-gray-700">
             <p class="text-gray-300">Your shortened URL:</p>
             <div class="mt-2 flex items-center gap-2">
                 <input type="text" readonly value="%s" 
@@ -91,10 +94,16 @@ func (h *Handler) HandleShortenForm(w http.ResponseWriter, r *http.Request) {
                 </button>
             </div>
         </div>`, response.ShortURL, response.ShortURL)
+		if err != nil {
+			return
+		}
 		return
 	}
 
 	// If not HTMX request, return JSON response
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(response)
+	err = json.NewEncoder(w).Encode(response)
+	if err != nil {
+		return
+	}
 }

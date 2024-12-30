@@ -36,7 +36,7 @@ func (r *postgresRepository) Create(url *ShortenedURL) error {
 func (r *postgresRepository) GetByShortCode(code string) (*ShortenedURL, error) {
 	url := new(ShortenedURL)
 	err := r.db.Get(url, "SELECT * FROM shortened_urls WHERE short_code = $1", code)
-	if err == sql.ErrNoRows {
+	if errors.Is(err, sql.ErrNoRows) {
 		return nil, errors.New("URL not found")
 	}
 	if err != nil {
