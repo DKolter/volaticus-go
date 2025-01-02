@@ -1,3 +1,30 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+/* URL Shortener specific components */
+.url-card {
+    @apply bg-gray-800 rounded-lg p-6 border border-gray-700 transition-all duration-200;
+}
+
+.url-card:hover {
+    @apply border-gray-600 shadow-lg;
+}
+
+.stats-card {
+    @apply bg-gray-700 rounded-lg p-4 transition-all duration-200;
+}
+
+.stats-card:hover {
+    @apply bg-gray-600;
+}
+
+/* Toast notifications */
+.toast {
+    @apply fixed bottom-4 right-4 bg-gray-800 text-white px-4 py-2 rounded shadow-lg transition-opacity duration-300 z-50;
+}
+
+/* Loading state */
+.loading {
+    @apply opacity-50 pointer-events-none;
+}

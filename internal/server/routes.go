@@ -84,15 +84,26 @@ func (s *Server) RegisterRoutes() http.Handler {
 	// URL Shortener routes
 	shortenerService := shortener.NewService(
 		shortener.NewPostgresRepository(s.db.DB()),
-		fmt.Sprintf("http://localhost:%d", s.config.Port), // TODO: get from config
+		fmt.Sprintf("%s:%d", s.config.BaseURL, s.config.Port), // Use config BaseURL
 	)
 	shortenerHandler := shortener.NewHandler(shortenerService)
 
-	// Frontend route
-	r.Get("/url-short", s.handleUrlShort)
+	// Frontend routes
+	r.Route("/url-short", func(r chi.Router) {
+		r.Get("/", s.handleUrlShort)                       // Main page
+		r.Get("/list", shortenerHandler.HandleGetUserURLs) // Get user's URLs
+	})
 
-	// API/Form routes
-	r.Post("/url-short/shorten", shortenerHandler.HandleShortenForm)
+	// API routes for URL shortener
+	r.Route("/api/urls", func(r chi.Router) {
+		r.Post("/", shortenerHandler.HandleCreateShortURL)     // Create via API
+		r.Post("/shorten", shortenerHandler.HandleShortenForm) // Create via form
+		r.Get("/{urlID}", shortenerHandler.HandleGetURLAnalytics)
+		r.Delete("/{urlID}", shortenerHandler.HandleDeleteURL)
+		r.Put("/{urlID}/expiration", shortenerHandler.HandleUpdateExpiration)
+	})
+
+	// Redirect route - keep at root level for short URLs
 	r.Get("/{shortCode}", shortenerHandler.HandleRedirect)
 
 	return r
