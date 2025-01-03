@@ -267,10 +267,8 @@ func (h *Handler) HandleUpdateExpiration(w http.ResponseWriter, r *http.Request)
 
 	var expiresAt *time.Time
 	if expStr := r.FormValue("expires_at"); expStr != "" {
-		if !strings.Contains(expStr, "Z") {
-			expStr = expStr + ":00Z"
-		}
-		expTime, err := time.Parse(time.RFC3339, expStr)
+		// Parse the local time string
+		expTime, err := time.ParseInLocation("2006-01-02T15:04", expStr, time.Local)
 		if err != nil {
 			HandleError(w, &APIError{
 				Code:    ErrCodeInvalidInput,
@@ -318,10 +316,8 @@ func (h *Handler) HandleShortenForm(w http.ResponseWriter, r *http.Request) {
 
 	// Parse expiration if provided
 	if expStr := r.FormValue("expires_at"); expStr != "" {
-		if !strings.Contains(expStr, "Z") {
-			expStr = expStr + ":00Z"
-		}
-		expTime, err := time.Parse(time.RFC3339, expStr)
+		// Parse the local time string
+		expTime, err := time.ParseInLocation("2006-01-02T15:04", expStr, time.Local)
 		if err != nil {
 			HandleError(w, &APIError{
 				Code:    ErrCodeInvalidInput,

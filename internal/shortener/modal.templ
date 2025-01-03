@@ -25,51 +25,56 @@ templ RenderAnalyticsModal(analytics *URLAnalytics) {
                 </div>
 
                 <!-- Update Expiration -->
-                <div class="p-4 bg-gray-700 rounded-lg">
-                    <h4 class="text-sm font-medium text-gray-400 mb-2">URL Expiration</h4>
-                    <div class="flex gap-4">
-                        <form
-                            class="flex-1 flex gap-4 items-center"
-                            hx-put={ fmt.Sprintf("/api/urls/%s/expiration", analytics.URL.ID) }
-                            hx-swap="none"
-                            hx-on="htmx:afterRequest: if(event.detail.successful) { htmx.trigger('#my-urls', 'urlsChanged'); }"
+                <div class="mt-6 pt-6 border-t border-gray-700">
+                    <h4 class="text-sm font-medium text-gray-400 mb-2">Update Expiration</h4>
+                    <form
+                        class="flex gap-4 items-center"
+                        hx-put={ fmt.Sprintf("/api/urls/%s/expiration", analytics.URL.ID) }
+                        hx-swap="none"
+                        hx-on="htmx:afterRequest: if(event.detail.successful) {
+                            showToast('Expiration updated successfully');
+                            htmx.trigger('#my-urls', 'urlsChanged');
+                        }"
+                    >
+                        <input
+                            type="datetime-local"
+                            name="expires_at"
+                            class="flex-1 rounded-md border-0 bg-gray-600 px-3 py-1.5 text-white shadow-sm ring-1 ring-inset ring-gray-500 focus:ring-2 focus:ring-inset focus:ring-indigo-500 sm:text-sm"
+                            if analytics.URL.ExpiresAt != nil {
+                                value={ analytics.URL.ExpiresAt.Format("2006-01-02T15:04") }
+                            }
+                            min={ time.Now().Format("2006-01-02T15:04") }
+                            step="60"
+                        />
+                        <script>
+                            document.querySelector('.modal input[name="expires_at"]').addEventListener('change', function(e) {
+                                const date = new Date(e.target.value);
+                                // Ensure we're working with local time
+                                const localISOTime = new Date(date.getTime() - (date.getTimezoneOffset() * 60000))
+                                    .toISOString()
+                                    .slice(0, 16);
+                                e.target.value = localISOTime;
+                            });
+                        </script>
+                        <button
+                            type="submit"
+                            class="px-3 py-2 text-sm font-semibold text-white bg-indigo-600 hover:bg-indigo-500 rounded-md"
                         >
-                            <div class="flex-1">
-                                <input
-                                    type="datetime-local"
-                                    name="expires_at"
-                                    class="w-full rounded-md border-0 bg-gray-600 px-3 py-1.5 text-white shadow-sm ring-1 ring-inset ring-gray-500 focus:ring-2 focus:ring-inset focus:ring-indigo-500 sm:text-sm"
-                                    if analytics.URL.ExpiresAt != nil {
-                                        value={ analytics.URL.ExpiresAt.Format("2006-01-02T15:04") }
-                                    }
-                                    min={ time.Now().Format("2006-01-02T15:04") }
-                                />
-                                <p class="mt-1 text-sm text-gray-400">
-                                    Current expiration:
-                                    if analytics.URL.ExpiresAt != nil {
-                                        { analytics.URL.ExpiresAt.Format("January 2, 2006 at 15:04") }
-                                    } else {
-                                        Never
-                                    }
-                                </p>
-                            </div>
-                            <button
-                                type="submit"
-                                class="px-3 py-2 text-sm font-semibold text-white bg-indigo-600 hover:bg-indigo-500 rounded-md"
-                            >
-                                Update
-                            </button>
-                        </form>
+                            Update
+                        </button>
                         <button
                             type="button"
                             hx-put={ fmt.Sprintf("/api/urls/%s/expiration", analytics.URL.ID) }
                             hx-swap="none"
-                            hx-on="htmx:afterRequest: if(event.detail.successful) { htmx.trigger('#my-urls', 'urlsChanged'); }"
-                            class="px-3 py-2 text-sm font-semibold text-white bg-red-600 hover:bg-red-500 rounded-md"
+                            hx-on="htmx:afterRequest: if(event.detail.successful) {
+                                showToast('Expiration removed successfully');
+                                htmx.trigger('#my-urls', 'urlsChanged');
+                            }"
+                            class="px-3 py-2 text-sm font-semibold text-gray-300 hover:text-white"
                         >
-                            Remove
+                            Remove Expiration
                         </button>
-                    </div>
+                    </form>
                 </div>
             </div>
 
