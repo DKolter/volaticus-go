@@ -1,146 +1,142 @@
 package shortener
 
 import (
-    "fmt"
-    "time"
+	"fmt"
+	"time"
 )
 
 templ RenderAnalyticsModal(analytics *URLAnalytics) {
-    <div class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-        <div class="bg-gray-800 rounded-lg p-6 w-full max-w-4xl">
-            <div class="flex justify-between items-center mb-6">
-                <h3 class="text-xl font-semibold text-white">URL Analytics</h3>
-                <button onclick="this.closest('.fixed').remove()" class="text-gray-400 hover:text-white">
-                    <svg class="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
-                    </svg>
-                </button>
-            </div>
-
-            <!-- URL Info and Expiration Section -->
-            <div class="mb-6 space-y-4">
-                <div class="p-4 bg-gray-700 rounded-lg">
-                    <div class="text-sm text-gray-400 mb-1">Original URL</div>
-                    <div class="text-white break-all">{ analytics.URL.OriginalURL }</div>
-                </div>
-
-                <!-- Update Expiration -->
-                <div class="mt-6 pt-6 border-t border-gray-700">
-                    <h4 class="text-sm font-medium text-gray-400 mb-2">Update Expiration</h4>
-                    <form
-                        class="flex gap-4 items-center"
-                        hx-put={ fmt.Sprintf("/api/urls/%s/expiration", analytics.URL.ID) }
-                        hx-swap="none"
-                        hx-on="htmx:afterRequest: if(event.detail.successful) {
-                            showToast('Expiration updated successfully');
-                            htmx.trigger('#my-urls', 'urlsChanged');
-                        }"
-                    >
-                        <input
-                            type="datetime-local"
-                            name="expires_at"
-                            class="flex-1 rounded-md border-0 bg-gray-600 px-3 py-1.5 text-white shadow-sm ring-1 ring-inset ring-gray-500 focus:ring-2 focus:ring-inset focus:ring-indigo-500 sm:text-sm"
-                            if analytics.URL.ExpiresAt != nil {
-                                value={ analytics.URL.ExpiresAt.Format("2006-01-02T15:04") }
-                            }
-                            min={ time.Now().Format("2006-01-02T15:04") }
-                            step="60"
-                        />
-                        <script>
-                            document.querySelector('.modal input[name="expires_at"]').addEventListener('change', function(e) {
-                                const date = new Date(e.target.value);
-                                // Ensure we're working with local time
-                                const localISOTime = new Date(date.getTime() - (date.getTimezoneOffset() * 60000))
-                                    .toISOString()
-                                    .slice(0, 16);
-                                e.target.value = localISOTime;
-                            });
-                        </script>
-                        <button
-                            type="submit"
-                            class="px-3 py-2 text-sm font-semibold text-white bg-indigo-600 hover:bg-indigo-500 rounded-md"
-                        >
-                            Update
-                        </button>
-                        <button
-                            type="button"
-                            hx-put={ fmt.Sprintf("/api/urls/%s/expiration", analytics.URL.ID) }
-                            hx-swap="none"
-                            hx-on="htmx:afterRequest: if(event.detail.successful) {
-                                showToast('Expiration removed successfully');
+	<div class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+		<div class="bg-gray-800 rounded-lg p-6 w-full max-w-4xl">
+			<div class="flex justify-between items-center mb-6">
+				<h3 class="text-xl font-semibold text-white">URL Analytics</h3>
+				<button onclick="this.closest('.fixed').remove()" class="text-gray-400 hover:text-white">
+					<svg class="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+						<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+					</svg>
+				</button>
+			</div>
+			<!-- URL Info and Expiration Section -->
+			<div class="mb-6 space-y-4">
+				<div class="p-4 bg-gray-700 rounded-lg">
+					<div class="text-sm text-gray-400 mb-1">Original URL</div>
+					<div class="text-white break-all">{ analytics.URL.OriginalURL }</div>
+				</div>
+				<!-- Update Expiration -->
+				<div class="mt-6 pt-6 border-t border-gray-700">
+					<h4 class="text-sm font-medium text-gray-400 mb-2">Update Expiration</h4>
+					<div class="flex gap-4 items-center">
+						<form
+							class="flex-1 flex gap-4 items-center"
+							hx-put={ fmt.Sprintf("/api/urls/%s/expiration", analytics.URL.ID) }
+							hx-swap="none"
+							hx-on="htmx:afterRequest: if(event.detail.successful) {
+                                showToast('Expiration updated successfully');
                                 htmx.trigger('#my-urls', 'urlsChanged');
                             }"
-                            class="px-3 py-2 text-sm font-semibold text-gray-300 hover:text-white"
-                        >
-                            Remove Expiration
-                        </button>
-                    </form>
-                </div>
-            </div>
-
-            <!-- Analytics Overview -->
-            <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-                <div class="bg-gray-700 rounded-lg p-4">
-                    <div class="text-sm text-gray-400">Total Clicks</div>
-                    <div class="text-2xl text-white">{ fmt.Sprint(analytics.TotalClicks) }</div>
-                </div>
-                <div class="bg-gray-700 rounded-lg p-4">
-                    <div class="text-sm text-gray-400">Unique Visitors</div>
-                    <div class="text-2xl text-white">{ fmt.Sprint(analytics.UniqueClicks) }</div>
-                </div>
-                <div class="bg-gray-700 rounded-lg p-4">
-                    <div class="text-sm text-gray-400">Last Click</div>
-                    <div class="text-2xl text-white">
-                        if analytics.URL.LastAccessedAt != nil {
-                            { analytics.URL.LastAccessedAt.Format("2006-01-02 15:04") }
-                        } else {
-                            Never
-                        }
-                    </div>
-                </div>
-            </div>
-
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <!-- Top Referrers -->
-                <div>
-                    <h4 class="text-sm font-medium text-gray-400 mb-2">Top Referrers</h4>
-                    <div class="bg-gray-700 rounded-lg p-4 h-48 overflow-y-auto">
-                        if len(analytics.TopReferrers) == 0 {
-                            <div class="text-gray-400">No referrer data available</div>
-                        } else {
-                            for _, ref := range analytics.TopReferrers {
-                                <div class="flex justify-between items-center py-1">
-                                    <span class="text-gray-300 truncate max-w-xs" title={ ref.Referrer }>
-                                        { ref.Referrer }
-                                    </span>
-                                    <span class="text-gray-400 ml-2">{ fmt.Sprint(ref.Count) }</span>
-                                </div>
-                            }
-                        }
-                    </div>
-                </div>
-
-                <!-- Top Countries -->
-                <div>
-                    <h4 class="text-sm font-medium text-gray-400 mb-2">Geographic Distribution</h4>
-                    <div class="bg-gray-700 rounded-lg p-4 h-48 overflow-y-auto">
-                        if len(analytics.TopCountries) == 0 {
-                            <div class="text-gray-400">No location data available</div>
-                        } else {
-                            for _, country := range analytics.TopCountries {
-                                <div class="flex justify-between items-center py-1">
-                                    <span class="text-gray-300">{ country.CountryCode }</span>
-                                    <span class="text-gray-400">{ fmt.Sprint(country.Count) }</span>
-                                </div>
-                            }
-                        }
-                    </div>
-                </div>
-            </div>
-
-            <!-- Additional stats will be added here -->
-        </div>
-    </div>
+						>
+							<input
+								type="datetime-local"
+								name="expires_at"
+								class="w-full rounded-md border-0 bg-gray-600 px-3 py-1.5 text-white shadow-sm ring-1 ring-inset ring-gray-500 focus:ring-2 focus:ring-inset focus:ring-indigo-500 sm:text-sm"
+								if analytics.URL.ExpiresAt != nil {
+									value={ analytics.URL.ExpiresAt.Format("2006-01-02T15:04") }
+								}
+								min={ time.Now().Format("2006-01-02T15:04") }
+								step="60"
+							/>
+							<script>
+                                document.querySelector('.modal input[name="expires_at"]').addEventListener('change', function(e) {
+                                    const date = new Date(e.target.value);
+                                    // Ensure we're working with local time
+                                    const localISOTime = new Date(date.getTime() - (date.getTimezoneOffset() * 60000))
+                                        .toISOString()
+                                        .slice(0, 16);
+                                    e.target.value = localISOTime;
+                                });
+                            </script>
+							<button
+								type="submit"
+								class="px-3 py-2 text-sm font-semibold text-white bg-indigo-600 hover:bg-indigo-500 rounded-md"
+							>
+								Update
+							</button>
+						</form>
+						<button
+							type="button"
+							hx-put={ fmt.Sprintf("/api/urls/%s/expiration", analytics.URL.ID) }
+							hx-swap="none"
+							hx-on="htmx:afterRequest: if(event.detail.successful) {
+                                        showToast('Expiration removed successfully');
+                                        htmx.trigger('#my-urls', 'urlsChanged');
+                                    }"
+							class="px-3 py-2 text-sm font-semibold text-gray-300 hover:text-white"
+						>
+							Remove Expiration
+						</button>
+					</div>
+				</div>
+			</div>
+			<!-- Analytics Overview -->
+			<div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+				<div class="bg-gray-700 rounded-lg p-4">
+					<div class="text-sm text-gray-400">Total Clicks</div>
+					<div class="text-2xl text-white">{ fmt.Sprint(analytics.TotalClicks) }</div>
+				</div>
+				<div class="bg-gray-700 rounded-lg p-4">
+					<div class="text-sm text-gray-400">Unique Visitors</div>
+					<div class="text-2xl text-white">{ fmt.Sprint(analytics.UniqueClicks) }</div>
+				</div>
+				<div class="bg-gray-700 rounded-lg p-4">
+					<div class="text-sm text-gray-400">Last Click</div>
+					<div class="text-2xl text-white">
+						if analytics.URL.LastAccessedAt != nil {
+							{ analytics.URL.LastAccessedAt.Format("2006-01-02 15:04") }
+						} else {
+							Never
+						}
+					</div>
+				</div>
+			</div>
+			<div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+				<!-- Top Referrers -->
+				<div>
+					<h4 class="text-sm font-medium text-gray-400 mb-2">Top Referrers</h4>
+					<div class="bg-gray-700 rounded-lg p-4 h-48 overflow-y-auto">
+						if len(analytics.TopReferrers) == 0 {
+							<div class="text-gray-400">No referrer data available</div>
+						} else {
+							for _, ref := range analytics.TopReferrers {
+								<div class="flex justify-between items-center py-1">
+									<span class="text-gray-300 truncate max-w-xs" title={ ref.Referrer }>
+										{ ref.Referrer }
+									</span>
+									<span class="text-gray-400 ml-2">{ fmt.Sprint(ref.Count) }</span>
+								</div>
+							}
+						}
+					</div>
+				</div>
+				<!-- Top Countries -->
+				<div>
+					<h4 class="text-sm font-medium text-gray-400 mb-2">Geographic Distribution</h4>
+					<div class="bg-gray-700 rounded-lg p-4 h-48 overflow-y-auto">
+						if len(analytics.TopCountries) == 0 {
+							<div class="text-gray-400">No location data available</div>
+						} else {
+							for _, country := range analytics.TopCountries {
+								<div class="flex justify-between items-center py-1">
+									<span class="text-gray-300">{ country.CountryCode }</span>
+									<span class="text-gray-400">{ fmt.Sprint(country.Count) }</span>
+								</div>
+							}
+						}
+					</div>
+				</div>
+			</div>
+			<!-- Additional stats will be added here -->
+		</div>
+	</div>
 }
 
 script handleExpiration(urlID string) {

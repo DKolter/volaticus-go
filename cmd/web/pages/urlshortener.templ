@@ -1,10 +1,10 @@
 package pages
 
 import (
-    "encoding/json"
-    "fmt"
-    "time"
-    "volaticus-go/internal/shortener"
+	"encoding/json"
+	"fmt"
+	"time"
+	"volaticus-go/internal/shortener"
 )
 
 // Main URL Shortener page
@@ -63,20 +63,20 @@ templ UrlShortPage() {
 						</div>
 					</div>
 					<!-- Expiration Date -->
-                    <div>
-                        <label for="expires_at" class="block text-sm font-medium leading-6 text-gray-300">
-                            Expiration Date (optional)
-                        </label>
-                        <div class="mt-2">
-                            <input
-                                type="datetime-local"
-                                name="expires_at"
-                                id="expires_at"
-                                min={ time.Now().Format("2006-01-02T15:04") }
-                                class="block w-full rounded-md border-0 bg-white/5 py-1.5 text-white shadow-sm ring-1 ring-inset ring-white/10 focus:ring-2 focus:ring-inset focus:ring-indigo-500 sm:text-sm sm:leading-6"
-                                step="60"
-                            />
-                            <script>
+					<div>
+						<label for="expires_at" class="block text-sm font-medium leading-6 text-gray-300">
+							Expiration Date (optional)
+						</label>
+						<div class="mt-2">
+							<input
+								type="datetime-local"
+								name="expires_at"
+								id="expires_at"
+								min={ time.Now().Format("2006-01-02T15:04") }
+								class="block w-full rounded-md border-0 bg-white/5 py-1.5 text-white shadow-sm ring-1 ring-inset ring-white/10 focus:ring-2 focus:ring-inset focus:ring-indigo-500 sm:text-sm sm:leading-6"
+								step="60"
+							/>
+							<script>
                                 document.getElementById('expires_at').addEventListener('change', function(e) {
                                     const date = new Date(e.target.value);
                                     // Ensure we're working with local time
@@ -86,11 +86,11 @@ templ UrlShortPage() {
                                     e.target.value = localISOTime;
                                 });
                             </script>
-                        </div>
-                        <p class="mt-1 text-sm text-gray-500">
-                            Leave empty for a permanent URL
-                        </p>
-                    </div>
+						</div>
+						<p class="mt-1 text-sm text-gray-500">
+							Leave empty for a permanent URL
+						</p>
+					</div>
 					<button
 						type="submit"
 						class="w-full rounded-md bg-indigo-500 px-3.5 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-indigo-400 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-500"
@@ -196,14 +196,14 @@ templ URLList(urls []*shortener.ShortenedURL) {
 								{ url.CreatedAt.Format("2006-01-02") }
 							</td>
 							<td class="px-6 py-4 whitespace-nowrap text-sm">
-                                if url.ExpiresAt == nil {
-                                    <span class="text-green-500">Never</span>
-                                } else if time.Now().After(*url.ExpiresAt) {
-                                    <span class="text-red-500">Expired</span>
-                                } else {
-                                    <span class="text-gray-300">{ url.ExpiresAt.UTC().Format("02.01.2006 15:04 MST") }</span>
-                                }
-                            </td>
+								if url.ExpiresAt == nil {
+									<span class="text-green-500">Never</span>
+								} else if time.Now().After(*url.ExpiresAt) {
+									<span class="text-red-500">Expired</span>
+								} else {
+									<span class="text-gray-300">{ url.ExpiresAt.UTC().Format("02.01.2006 15:04 MST") }</span>
+								}
+							</td>
 							<td class="px-6 py-4 whitespace-nowrap text-sm text-gray-300">
 								<div class="flex items-center space-x-3">
 									<button
@@ -316,59 +316,59 @@ templ AnalyticsModal(analytics *shortener.URLAnalytics) {
 				</div>
 			</div>
 			<!-- Daily Clicks Chart -->
-            <div class="mt-6">
-                <h4 class="text-sm font-medium text-gray-400 mb-2">Clicks Over Time</h4>
-                <div class="bg-gray-700 rounded-lg p-4">
-                    if len(analytics.ClicksByDay) == 0 {
-                        <div class="text-gray-400">No click data available</div>
-                    } else {
-                        <div class="h-48">
-                            <div id="clicks-chart" class="w-full h-full"></div>
-                        </div>
-                    }
-                </div>
-            </div>
+			<div class="mt-6">
+				<h4 class="text-sm font-medium text-gray-400 mb-2">Clicks Over Time</h4>
+				<div class="bg-gray-700 rounded-lg p-4">
+					if len(analytics.ClicksByDay) == 0 {
+						<div class="text-gray-400">No click data available</div>
+					} else {
+						<div class="h-48">
+							<div id="clicks-chart" class="w-full h-full"></div>
+						</div>
+					}
+				</div>
+			</div>
 			<!-- Update Expiration -->
 			<div class="mt-6 pt-6 border-t border-gray-700">
-                <h4 class="text-sm font-medium text-gray-400 mb-2">Update Expiration</h4>
-                <form
-                    class="flex gap-4 items-center"
-                    hx-put={ fmt.Sprintf("/api/urls/%s/expiration", analytics.URL.ID) }
-                    hx-swap="none"
-                    hx-on="htmx:afterRequest: if(event.detail.successful) {
+				<h4 class="text-sm font-medium text-gray-400 mb-2">Update Expiration</h4>
+				<form
+					class="flex gap-4 items-center"
+					hx-put={ fmt.Sprintf("/api/urls/%s/expiration", analytics.URL.ID) }
+					hx-swap="none"
+					hx-on="htmx:afterRequest: if(event.detail.successful) {
                         showToast('Expiration updated successfully');
                         htmx.trigger('#my-urls', 'urlsChanged');
                     }"
-                >
-                    <input
-                        type="datetime-local"
-                        name="expires_at"
-                        class="flex-1 rounded-md border-0 bg-gray-600 px-3 py-1.5 text-white shadow-sm ring-1 ring-inset ring-gray-500 focus:ring-2 focus:ring-inset focus:ring-indigo-500 sm:text-sm"
-                        if analytics.URL.ExpiresAt != nil {
-                            value={ analytics.URL.ExpiresAt.Format("2006-01-02T15:04") }
-                        }
-                        min={ time.Now().Format("2006-01-02T15:04") }
-                    />
-                    <button
-                        type="submit"
-                        class="px-3 py-2 text-sm font-semibold text-white bg-indigo-600 hover:bg-indigo-500 rounded-md"
-                    >
-                        Update
-                    </button>
-                    <button
-                        type="button"
-                        hx-put={ fmt.Sprintf("/api/urls/%s/expiration", analytics.URL.ID) }
-                        hx-swap="none"
-                        hx-on="htmx:afterRequest: if(event.detail.successful) {
+				>
+					<input
+						type="datetime-local"
+						name="expires_at"
+						class="flex-1 rounded-md border-0 bg-gray-600 px-3 py-1.5 text-white shadow-sm ring-1 ring-inset ring-gray-500 focus:ring-2 focus:ring-inset focus:ring-indigo-500 sm:text-sm"
+						if analytics.URL.ExpiresAt != nil {
+							value={ analytics.URL.ExpiresAt.Format("2006-01-02T15:04") }
+						}
+						min={ time.Now().Format("2006-01-02T15:04") }
+					/>
+					<button
+						type="submit"
+						class="px-3 py-2 text-sm font-semibold text-white bg-indigo-600 hover:bg-indigo-500 rounded-md"
+					>
+						Update
+					</button>
+					<button
+						type="button"
+						hx-put={ fmt.Sprintf("/api/urls/%s/expiration", analytics.URL.ID) }
+						hx-swap="none"
+						hx-on="htmx:afterRequest: if(event.detail.successful) {
                             showToast('Expiration removed successfully');
                             htmx.trigger('#my-urls', 'urlsChanged');
                         }"
-                        class="px-3 py-2 text-sm font-semibold text-gray-300 hover:text-white"
-                    >
-                        Remove Expiration
-                    </button>
-                </form>
-            </div>
+						class="px-3 py-2 text-sm font-semibold text-gray-300 hover:text-white"
+					>
+						Remove Expiration
+					</button>
+				</form>
+			</div>
 		</div>
 	</div>
 }
@@ -383,11 +383,11 @@ script copyToClipboard(shortCode string) {
 }
 
 func formatClicksDataToJSON(data []shortener.ClicksByDay) string {
-    jsonData, err := json.Marshal(data)
-    if err != nil {
-        return "[]"
-    }
-    return string(jsonData)
+	jsonData, err := json.Marshal(data)
+	if err != nil {
+		return "[]"
+	}
+	return string(jsonData)
 }
 
 script showToast(message string) {
