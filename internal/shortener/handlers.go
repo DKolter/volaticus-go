@@ -242,6 +242,14 @@ func (h *Handler) HandleDeleteURL(w http.ResponseWriter, r *http.Request) {
 
 // HandleUpdateExpiration handles updating the URL expiration
 func (h *Handler) HandleUpdateExpiration(w http.ResponseWriter, r *http.Request) {
+	if err := r.ParseForm(); err != nil {
+		HandleError(w, &APIError{
+			Code:    ErrCodeInvalidInput,
+			Message: "Error parsing form",
+		}, http.StatusBadRequest)
+		return
+	}
+
 	urlID, err := uuid.Parse(chi.URLParam(r, "urlID"))
 	if err != nil {
 		HandleError(w, &APIError{
@@ -251,30 +259,29 @@ func (h *Handler) HandleUpdateExpiration(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	var req struct {
-		ExpiresAt *time.Time `json:"expires_at"`
-	}
-
-	// Handle empty body case for removal of expiration
-	if r.ContentLength == 0 {
-		req.ExpiresAt = nil
-	} else {
-		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-			HandleError(w, &APIError{
-				Code:    ErrCodeInvalidInput,
-				Message: "Invalid request body",
-			}, http.StatusBadRequest)
-			return
-		}
-	}
-
 	user := context.GetUserFromContext(r.Context())
 	if user == nil {
 		HandleError(w, ErrUnauthorized, http.StatusUnauthorized)
 		return
 	}
 
-	if err := h.service.UpdateURLExpiration(urlID, user.ID, req.ExpiresAt); err != nil {
+	var expiresAt *time.Time
+	if expStr := r.FormValue("expires_at"); expStr != "" {
+		if !strings.Contains(expStr, "Z") {
+			expStr = expStr + ":00Z"
+		}
+		expTime, err := time.Parse(time.RFC3339, expStr)
+		if err != nil {
+			HandleError(w, &APIError{
+				Code:    ErrCodeInvalidInput,
+				Message: "Invalid expiration date format",
+			}, http.StatusBadRequest)
+			return
+		}
+		expiresAt = &expTime
+	}
+
+	if err := h.service.UpdateURLExpiration(urlID, user.ID, expiresAt); err != nil {
 		if strings.Contains(err.Error(), "unauthorized") {
 			HandleError(w, ErrUnauthorized, http.StatusForbidden)
 			return

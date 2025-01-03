@@ -27,49 +27,49 @@ templ RenderAnalyticsModal(analytics *URLAnalytics) {
                 <!-- Update Expiration -->
                 <div class="p-4 bg-gray-700 rounded-lg">
                     <h4 class="text-sm font-medium text-gray-400 mb-2">URL Expiration</h4>
-                    <form
-                        class="flex gap-4 items-center"
-                        hx-put={ fmt.Sprintf("/api/urls/%s/expiration", analytics.URL.ID) }
-                        hx-swap="none"
-                        hx-on="htmx:afterRequest: if(event.detail.successful) { showToast('Expiration updated successfully'); htmx.trigger('#my-urls', 'urlsChanged'); }"
-                    >
-                        <div class="flex-1">
-                            <input
-                                type="datetime-local"
-                                name="expires_at"
-                                class="w-full rounded-md border-0 bg-gray-600 px-3 py-1.5 text-white shadow-sm ring-1 ring-inset ring-gray-500 focus:ring-2 focus:ring-inset focus:ring-indigo-500 sm:text-sm"
-                                if analytics.URL.ExpiresAt != nil {
-                                    value={ analytics.URL.ExpiresAt.Format("2006-01-02T15:04") }
-                                }
-                                min={ time.Now().Format("2006-01-02T15:04") }
-                            />
-                            <p class="mt-1 text-sm text-gray-400">
-                                Current expiration:
-                                if analytics.URL.ExpiresAt != nil {
-                                    { analytics.URL.ExpiresAt.Format("January 2, 2006 at 15:04") }
-                                } else {
-                                    Never
-                                }
-                            </p>
-                        </div>
-                        <div class="flex gap-2">
+                    <div class="flex gap-4">
+                        <form
+                            class="flex-1 flex gap-4 items-center"
+                            hx-put={ fmt.Sprintf("/api/urls/%s/expiration", analytics.URL.ID) }
+                            hx-swap="none"
+                            hx-on="htmx:afterRequest: if(event.detail.successful) { htmx.trigger('#my-urls', 'urlsChanged'); }"
+                        >
+                            <div class="flex-1">
+                                <input
+                                    type="datetime-local"
+                                    name="expires_at"
+                                    class="w-full rounded-md border-0 bg-gray-600 px-3 py-1.5 text-white shadow-sm ring-1 ring-inset ring-gray-500 focus:ring-2 focus:ring-inset focus:ring-indigo-500 sm:text-sm"
+                                    if analytics.URL.ExpiresAt != nil {
+                                        value={ analytics.URL.ExpiresAt.Format("2006-01-02T15:04") }
+                                    }
+                                    min={ time.Now().Format("2006-01-02T15:04") }
+                                />
+                                <p class="mt-1 text-sm text-gray-400">
+                                    Current expiration:
+                                    if analytics.URL.ExpiresAt != nil {
+                                        { analytics.URL.ExpiresAt.Format("January 2, 2006 at 15:04") }
+                                    } else {
+                                        Never
+                                    }
+                                </p>
+                            </div>
                             <button
                                 type="submit"
                                 class="px-3 py-2 text-sm font-semibold text-white bg-indigo-600 hover:bg-indigo-500 rounded-md"
                             >
                                 Update
                             </button>
-                            <button
-                                type="button"
-                                hx-put={ fmt.Sprintf("/api/urls/%s/expiration", analytics.URL.ID) }
-                                hx-swap="none"
-                                hx-on="htmx:afterRequest: if(event.detail.successful) { showToast('Expiration removed'); htmx.trigger('#my-urls', 'urlsChanged'); }"
-                                class="px-3 py-2 text-sm font-semibold text-white bg-red-600 hover:bg-red-500 rounded-md"
-                            >
-                                Remove
-                            </button>
-                        </div>
-                    </form>
+                        </form>
+                        <button
+                            type="button"
+                            hx-put={ fmt.Sprintf("/api/urls/%s/expiration", analytics.URL.ID) }
+                            hx-swap="none"
+                            hx-on="htmx:afterRequest: if(event.detail.successful) { htmx.trigger('#my-urls', 'urlsChanged'); }"
+                            class="px-3 py-2 text-sm font-semibold text-white bg-red-600 hover:bg-red-500 rounded-md"
+                        >
+                            Remove
+                        </button>
+                    </div>
                 </div>
             </div>
 
@@ -136,4 +136,34 @@ templ RenderAnalyticsModal(analytics *URLAnalytics) {
             <!-- Additional stats will be added here -->
         </div>
     </div>
+}
+
+script handleExpiration(urlID string) {
+    // Prevent default form submission
+    event.preventDefault();
+
+    // Get the input value
+    const form = event.target.closest('form');
+    const expiresAt = form.querySelector('input[name="expires_at"]').value;
+
+    // Add seconds and timezone
+    const formattedDate = expiresAt ? expiresAt + ':00Z' : null;
+
+    // Send the request
+    htmx.ajax('PUT',
+        form.getAttribute('hx-put'),
+        {
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            values: JSON.stringify({
+                expires_at: formattedDate
+            })
+        }
+    ).then(() => {
+        showToast('Expiration updated successfully');
+        htmx.trigger('#my-urls', 'urlsChanged');
+    }).catch(() => {
+        showToast('Error updating expiration');
+    });
 }
