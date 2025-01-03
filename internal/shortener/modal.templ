@@ -1,6 +1,9 @@
 package shortener
 
-import "fmt"
+import (
+    "fmt"
+    "time"
+)
 
 templ RenderAnalyticsModal(analytics *URLAnalytics) {
     <div class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
@@ -14,11 +17,63 @@ templ RenderAnalyticsModal(analytics *URLAnalytics) {
                 </button>
             </div>
 
-            <div class="mb-6 p-4 bg-gray-700 rounded-lg">
-                <div class="text-sm text-gray-400 mb-1">Original URL</div>
-                <div class="text-white break-all">{ analytics.URL.OriginalURL }</div>
+            <!-- URL Info and Expiration Section -->
+            <div class="mb-6 space-y-4">
+                <div class="p-4 bg-gray-700 rounded-lg">
+                    <div class="text-sm text-gray-400 mb-1">Original URL</div>
+                    <div class="text-white break-all">{ analytics.URL.OriginalURL }</div>
+                </div>
+
+                <!-- Update Expiration -->
+                <div class="p-4 bg-gray-700 rounded-lg">
+                    <h4 class="text-sm font-medium text-gray-400 mb-2">URL Expiration</h4>
+                    <form
+                        class="flex gap-4 items-center"
+                        hx-put={ fmt.Sprintf("/api/urls/%s/expiration", analytics.URL.ID) }
+                        hx-swap="none"
+                        hx-on="htmx:afterRequest: if(event.detail.successful) { showToast('Expiration updated successfully'); htmx.trigger('#my-urls', 'urlsChanged'); }"
+                    >
+                        <div class="flex-1">
+                            <input
+                                type="datetime-local"
+                                name="expires_at"
+                                class="w-full rounded-md border-0 bg-gray-600 px-3 py-1.5 text-white shadow-sm ring-1 ring-inset ring-gray-500 focus:ring-2 focus:ring-inset focus:ring-indigo-500 sm:text-sm"
+                                if analytics.URL.ExpiresAt != nil {
+                                    value={ analytics.URL.ExpiresAt.Format("2006-01-02T15:04") }
+                                }
+                                min={ time.Now().Format("2006-01-02T15:04") }
+                            />
+                            <p class="mt-1 text-sm text-gray-400">
+                                Current expiration:
+                                if analytics.URL.ExpiresAt != nil {
+                                    { analytics.URL.ExpiresAt.Format("January 2, 2006 at 15:04") }
+                                } else {
+                                    Never
+                                }
+                            </p>
+                        </div>
+                        <div class="flex gap-2">
+                            <button
+                                type="submit"
+                                class="px-3 py-2 text-sm font-semibold text-white bg-indigo-600 hover:bg-indigo-500 rounded-md"
+                            >
+                                Update
+                            </button>
+                            <button
+                                type="button"
+                                hx-put={ fmt.Sprintf("/api/urls/%s/expiration", analytics.URL.ID) }
+                                hx-swap="none"
+                                hx-on="htmx:afterRequest: if(event.detail.successful) { showToast('Expiration removed'); htmx.trigger('#my-urls', 'urlsChanged'); }"
+                                class="px-3 py-2 text-sm font-semibold text-white bg-red-600 hover:bg-red-500 rounded-md"
+                            >
+                                Remove
+                            </button>
+                        </div>
+                    </form>
+                </div>
             </div>
 
+            <!-- Analytics Overview -->
             <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
                 <div class="bg-gray-700 rounded-lg p-4">
                     <div class="text-sm text-gray-400">Total Clicks</div>
@@ -39,6 +94,46 @@ templ RenderAnalyticsModal(analytics *URLAnalytics) {
                     </div>
                 </div>
             </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <!-- Top Referrers -->
+                <div>
+                    <h4 class="text-sm font-medium text-gray-400 mb-2">Top Referrers</h4>
+                    <div class="bg-gray-700 rounded-lg p-4 h-48 overflow-y-auto">
+                        if len(analytics.TopReferrers) == 0 {
+                            <div class="text-gray-400">No referrer data available</div>
+                        } else {
+                            for _, ref := range analytics.TopReferrers {
+                                <div class="flex justify-between items-center py-1">
+                                    <span class="text-gray-300 truncate max-w-xs" title={ ref.Referrer }>
+                                        { ref.Referrer }
+                                    </span>
+                                    <span class="text-gray-400 ml-2">{ fmt.Sprint(ref.Count) }</span>
+                                </div>
+                            }
+                        }
+                    </div>
+                </div>
+
+                <!-- Top Countries -->
+                <div>
+                    <h4 class="text-sm font-medium text-gray-400 mb-2">Geographic Distribution</h4>
+                    <div class="bg-gray-700 rounded-lg p-4 h-48 overflow-y-auto">
+                        if len(analytics.TopCountries) == 0 {
+                            <div class="text-gray-400">No location data available</div>
+                        } else {
+                            for _, country := range analytics.TopCountries {
+                                <div class="flex justify-between items-center py-1">
+                                    <span class="text-gray-300">{ country.CountryCode }</span>
+                                    <span class="text-gray-400">{ fmt.Sprint(country.Count) }</span>
+                                </div>
+                            }
+                        }
+                    </div>
+                </div>
+            </div>
+
+            <!-- Additional stats will be added here -->
         </div>
     </div>
 }
