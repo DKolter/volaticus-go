@@ -103,8 +103,8 @@ func (s *Server) RegisterRoutes() http.Handler {
 		r.Put("/{urlID}/expiration", shortenerHandler.HandleUpdateExpiration)
 	})
 
-	// Redirect route - keep at root level for short URLs
-	r.Get("/{shortCode}", shortenerHandler.HandleRedirect)
+	// Public route for redirecting
+	r.Get("/s/{shortCode}", shortenerHandler.HandleRedirect)
 
 	return r
 }

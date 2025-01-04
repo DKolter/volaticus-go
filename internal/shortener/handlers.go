@@ -116,9 +116,9 @@ func (h *Handler) HandleGetUserURLs(w http.ResponseWriter, r *http.Request) {
                     <div class="flex flex-col space-y-2">
                         <div class="flex justify-between items-center">
                             <div class="flex items-center">
-                                <a href="/%s" class="text-indigo-400 hover:text-indigo-300 mr-2" target="_blank">/%s</a>
+                                <a href="/s/%s" class="text-indigo-400 hover:text-indigo-300 mr-2" target="_blank">/s/%s</a>
                                 <button
-                                    onclick="copyToClipboard('%s')"
+                                    onclick="copyToClipboard('s/%s')"
                                     class="text-gray-400 hover:text-gray-300"
                                     title="Copy to clipboard"
                                 >
@@ -127,7 +127,7 @@ func (h *Handler) HandleGetUserURLs(w http.ResponseWriter, r *http.Request) {
                                     </svg>
                                 </button>
                                 <button
-                                    onclick="showQRCode('%s')"
+                                    onclick="showQRCode('s/%s')"
                                     class="text-gray-400 hover:text-gray-300 ml-2"
                                     title="Show QR Code"
                                 >
@@ -485,6 +485,10 @@ func getIPAddress(r *http.Request) string {
 		ips := strings.Split(xff, ",")
 		return strings.TrimSpace(ips[0])
 	}
-	// Fall back to RemoteAddr
-	return strings.Split(r.RemoteAddr, ":")[0]
+
+	host := strings.Split(r.RemoteAddr, ":")[0]
+	if host == "[" || host == "[]" || host == "[::1]" || host == "" {
+		return "127.0.0.1" // Return localhost IP for development
+	}
+	return host
 }

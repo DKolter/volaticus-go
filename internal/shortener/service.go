@@ -75,7 +75,7 @@ func (s *Service) CreateShortURL(userID uuid.UUID, req *CreateURLRequest) (*Crea
 	}
 
 	return &CreateURLResponse{
-		ShortURL:    s.baseURL + "/" + shortCode,
+		ShortURL:    s.baseURL + "/s/" + shortCode,
 		OriginalURL: req.URL,
 		ShortCode:   shortCode,
 		ExpiresAt:   req.ExpiresAt,

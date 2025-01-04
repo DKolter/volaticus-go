@@ -47,7 +47,7 @@ templ UrlShortPage() {
 						</label>
 						<div class="mt-2">
 							<div class="flex rounded-md bg-white/5 ring-1 ring-inset ring-white/10">
-								<span class="flex select-none items-center pl-3 text-gray-400 sm:text-sm">/</span>
+								<span class="flex select-none items-center pl-3 text-gray-400 sm:text-sm">/s/</span>
 								<input
 									type="text"
 									name="vanity_code"
@@ -167,11 +167,11 @@ templ URLList(urls []*shortener.ShortenedURL) {
                             <td class="px-6 py-4 whitespace-nowrap text-sm">
                                 <div class="flex items-center">
                                     <a
-                                        href={ templ.SafeURL("/" + url.ShortCode) }
+                                        href={ templ.SafeURL("/s/" + url.ShortCode) }
                                         target="_blank"
                                         class="text-indigo-400 hover:text-indigo-300 mr-2"
                                     >
-                                        /{ url.ShortCode }
+                                        /s/{ url.ShortCode }
                                     </a>
                                     <button
                                         onclick={ copyToClipboard(url.ShortCode) }
@@ -388,7 +388,7 @@ templ AnalyticsModal(analytics *shortener.URLAnalytics) {
 // JavaScript functions for the template
 
 script copyToClipboard(shortCode string) {
-    const url = window.location.origin + "/" + shortCode;
+    const url = window.location.origin + "/s/" + shortCode;
     navigator.clipboard.writeText(url).then(() => {
         showToast('URL copied to clipboard');
     });
@@ -416,7 +416,7 @@ script showToast(message string) {
 }
 
 script showQRCode(shortCode string) {
-    const url = window.location.origin + "/" + shortCode;
+    const url = window.location.origin + "/s/" + shortCode;
     const qrModal = document.createElement('div');
     qrModal.className = 'fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50';
     qrModal.innerHTML = `
