@@ -18,34 +18,32 @@ var (
 	geoIPOnce     sync.Once
 )
 
+/* //TODO: Remove this comment block after testing
+
+Locally Test GeoIPService:
+curl -H "X-Forwarded-For: IP_ADRESSE" http://localhost:PORT/SHORTCODE
+
+Use:
+	8.8.8.8 = US (Google DNS)
+	185.86.151.11 = GB
+	2.2.2.2 = SE
+	203.104.128.1 = JP
+	103.1.1.1 = AU
+*/
+
 // GetGeoIPService returns a singleton instance of GeoIPService
 func GetGeoIPService() *GeoIPService {
 	geoIPOnce.Do(func() {
-		// Look for the GeoIP database in several common locations
-		dbPaths := []string{
-			"GeoLite2-City.mmdb",
-			"./GeoLite2-City.mmdb",
-			"/usr/local/share/GeoIP/GeoLite2-City.mmdb",
-			"/usr/share/GeoIP/GeoLite2-City.mmdb",
-		}
+		dbPath := "internal/database/GeoLite2-City.mmdb"
 
-		var reader *geoip2.Reader
-		var err error
-
-		for _, path := range dbPaths {
-			reader, err = geoip2.Open(path)
-			if err == nil {
-				log.Printf("Successfully loaded GeoIP database from: %s", path)
-				break
-			}
-		}
-
+		reader, err := geoip2.Open(dbPath)
 		if err != nil {
 			log.Printf("Warning: Could not load GeoIP database: %v", err)
 			geoIPInstance = &GeoIPService{}
 			return
 		}
 
+		log.Printf("Successfully loaded GeoIP database from: %s", dbPath)
 		geoIPInstance = &GeoIPService{
 			reader: reader,
 		}
