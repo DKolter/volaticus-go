@@ -250,139 +250,31 @@ templ URLList(urls []*shortener.ShortenedURL) {
     }
 }
 
-// Analytics Modal Component
-templ AnalyticsModal(analytics *shortener.URLAnalytics) {
-	<div class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-		<div class="bg-gray-800 rounded-lg p-6 w-full max-w-4xl">
-			<div class="flex justify-between items-center mb-6">
-				<h3 class="text-xl font-semibold text-white">URL Analytics</h3>
-				<button
-					onclick="this.closest('.fixed').remove()"
-					class="text-gray-400 hover:text-white"
-				>
-					<svg class="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-						<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
-					</svg>
-				</button>
-			</div>
-			<!-- URL Info -->
-			<div class="mb-6 p-4 bg-gray-700 rounded-lg">
-				<div class="text-sm text-gray-400 mb-1">Original URL</div>
-				<div class="text-white break-all">{ analytics.URL.OriginalURL }</div>
-			</div>
-			<!-- Analytics Overview -->
-			<div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-				<div class="bg-gray-700 rounded-lg p-4">
-					<div class="text-sm text-gray-400">Total Clicks</div>
-					<div class="text-2xl text-white">{ fmt.Sprint(analytics.TotalClicks) }</div>
-				</div>
-				<div class="bg-gray-700 rounded-lg p-4">
-					<div class="text-sm text-gray-400">Unique Visitors</div>
-					<div class="text-2xl text-white">{ fmt.Sprint(analytics.UniqueClicks) }</div>
-				</div>
-				<div class="bg-gray-700 rounded-lg p-4">
-					<div class="text-sm text-gray-400">Last Click</div>
-					<div class="text-2xl text-white">
-						if analytics.URL.LastAccessedAt != nil {
-							{ analytics.URL.LastAccessedAt.Format("2006-01-02 15:04") }
-						} else {
-							Never
-						}
-					</div>
-				</div>
-			</div>
-			<div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-				<!-- Top Referrers -->
-				<div>
-					<h4 class="text-sm font-medium text-gray-400 mb-2">Top Referrers</h4>
-					<div class="bg-gray-700 rounded-lg p-4">
-						if len(analytics.TopReferrers) == 0 {
-							<div class="text-gray-400">No referrer data available</div>
-						} else {
-							for _, ref := range analytics.TopReferrers {
-								<div class="flex justify-between items-center py-1">
-									<span class="text-gray-300 truncate max-w-xs" title={ ref.Referrer }>
-										{ ref.Referrer }
-									</span>
-									<span class="text-gray-400 ml-2">{ fmt.Sprint(ref.Count) }</span>
-								</div>
-							}
-						}
-					</div>
-				</div>
-				<!-- Top Countries -->
-				<div>
-					<h4 class="text-sm font-medium text-gray-400 mb-2">Top Countries</h4>
-					<div class="bg-gray-700 rounded-lg p-4">
-						if len(analytics.TopCountries) == 0 {
-							<div class="text-gray-400">No country data available</div>
-						} else {
-							for _, country := range analytics.TopCountries {
-								<div class="flex justify-between items-center py-1">
-									<span class="text-gray-300">{ country.CountryCode }</span>
-									<span class="text-gray-400">{ fmt.Sprint(country.Count) }</span>
-								</div>
-							}
-						}
-					</div>
-				</div>
-			</div>
-			<!-- Daily Clicks Chart -->
-			<div class="mt-6">
-				<h4 class="text-sm font-medium text-gray-400 mb-2">Clicks Over Time</h4>
-				<div class="bg-gray-700 rounded-lg p-4">
-					if len(analytics.ClicksByDay) == 0 {
-						<div class="text-gray-400">No click data available</div>
-					} else {
-						<div class="h-48">
-							<div id="clicks-chart" class="w-full h-full"></div>
-						</div>
-					}
-				</div>
-			</div>
-			<!-- Update Expiration -->
-			<div class="mt-6 pt-6 border-t border-gray-700">
-				<h4 class="text-sm font-medium text-gray-400 mb-2">Update Expiration</h4>
-				<form
-					class="flex gap-4 items-center"
-					hx-put={ fmt.Sprintf("/api/urls/%s/expiration", analytics.URL.ID) }
-					hx-swap="none"
-					hx-on="htmx:afterRequest: if(event.detail.successful) {
-                        showToast('Expiration updated successfully');
-                        htmx.trigger('#my-urls', 'urlsChanged');
-                    }"
-				>
-					<input
-						type="datetime-local"
-						name="expires_at"
-						class="flex-1 rounded-md border-0 bg-gray-600 px-3 py-1.5 text-white shadow-sm ring-1 ring-inset ring-gray-500 focus:ring-2 focus:ring-inset focus:ring-indigo-500 sm:text-sm"
-						if analytics.URL.ExpiresAt != nil {
-							value={ analytics.URL.ExpiresAt.Format("2006-01-02T15:04") }
-						}
-						min={ time.Now().Format("2006-01-02T15:04") }
-					/>
-					<button
-						type="submit"
-						class="px-3 py-2 text-sm font-semibold text-white bg-indigo-600 hover:bg-indigo-500 rounded-md"
-					>
-						Update
-					</button>
-					<button
-						type="button"
-						hx-put={ fmt.Sprintf("/api/urls/%s/expiration", analytics.URL.ID) }
-						hx-swap="none"
-						hx-on="htmx:afterRequest: if(event.detail.successful) {
-                            showToast('Expiration removed successfully');
-                            htmx.trigger('#my-urls', 'urlsChanged');
-                        }"
-						class="px-3 py-2 text-sm font-semibold text-gray-300 hover:text-white"
-					>
-						Remove Expiration
-					</button>
-				</form>
-			</div>
-		</div>
-	</div>
+// Shortened URL Result Component
+templ ShortenedURLResult(response *shortener.CreateURLResponse) {
+    <div class="mt-4 p-4 bg-gray-800 rounded-lg border border-gray-700">
+        <p class="text-gray-300">Your shortened URL:</p>
+        <div class="mt-2 flex items-center gap-2">
+            <input type="text" readonly value={response.ShortURL}
+                class="flex-1 rounded-md border-0 bg-white/5 py-1.5 text-white shadow-sm ring-1 ring-inset ring-white/10"/>
+            <button onclick="navigator.clipboard.writeText('{response.ShortURL}')"
+                class="rounded-md bg-indigo-500 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-indigo-400">
+                Copy
+            </button>
+        </div>
+        if response.ExpiresAt != nil {
+            <p class="mt-2 text-sm text-gray-400">
+                This URL will expire on {response.ExpiresAt.Format("January 2, 2006 at 15:04 MST")}
+            </p>
+        }
+    </div>
+}
+
+// Error Result Component
+templ ErrorResult(message string) {
+    <div class="mt-4">
+        <p class="text-red-400">{message}</p>
+    </div>
 }
 
 // JavaScript functions for the template

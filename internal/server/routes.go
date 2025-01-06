@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"net/http"
 	"volaticus-go/cmd/web"
+	"volaticus-go/cmd/web/handlers"
 	"volaticus-go/internal/shortener"
 
 	"github.com/go-chi/chi/v5"
@@ -86,7 +87,7 @@ func (s *Server) RegisterRoutes() http.Handler {
 		shortener.NewPostgresRepository(s.db.DB()),
 		fmt.Sprintf("%s:%d", s.config.BaseURL, s.config.Port), // Use config BaseURL
 	)
-	shortenerHandler := shortener.NewHandler(shortenerService)
+	shortenerHandler := handlers.NewHandler(shortenerService)
 
 	// Frontend routes
 	r.Route("/url-short", func(r chi.Router) {
