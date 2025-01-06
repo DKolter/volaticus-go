@@ -196,6 +196,9 @@ func (r *postgresRepository) GetURLAnalytics(urlID uuid.UUID) (*URLAnalytics, er
     LIMIT 10`,
 		urlID,
 	)
+	if err != nil {
+		return nil, err
+	}
 
 	// Get clicks by day
 	err = r.db.Select(&analytics.ClicksByDay, `
