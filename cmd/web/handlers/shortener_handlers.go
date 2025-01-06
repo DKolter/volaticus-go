@@ -54,7 +54,10 @@ func (h *Handler) HandleCreateShortURL(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(response)
+	err = json.NewEncoder(w).Encode(response)
+	if err != nil {
+		return
+	}
 }
 
 // HandleRedirect handles the redirection and analytics recording
@@ -150,7 +153,10 @@ func (h *Handler) HandleGetURLAnalytics(w http.ResponseWriter, r *http.Request) 
 
 	// Otherwise return JSON
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(analytics)
+	err = json.NewEncoder(w).Encode(analytics)
+	if err != nil {
+		return
+	}
 }
 
 func (h *Handler) HandleDeleteURL(w http.ResponseWriter, r *http.Request) {
@@ -300,7 +306,10 @@ func (h *Handler) HandleShortenForm(w http.ResponseWriter, r *http.Request) {
 				errorMessage = "This custom URL is already taken"
 			}
 
-			pages.ErrorResult(errorMessage).Render(r.Context(), w)
+			err := pages.ErrorResult(errorMessage).Render(r.Context(), w)
+			if err != nil {
+				return
+			}
 			return
 		}
 
@@ -312,14 +321,20 @@ func (h *Handler) HandleShortenForm(w http.ResponseWriter, r *http.Request) {
 	if r.Header.Get("HX-Request") == "true" {
 		w.Header().Set("Content-Type", "text/html")
 		w.Header().Set("HX-Trigger", "urlsChanged")
-		pages.ShortenedURLResult(response).Render(r.Context(), w)
+		err := pages.ShortenedURLResult(response).Render(r.Context(), w)
+		if err != nil {
+			return
+		}
 		return
 	}
 
 	// If not HTMX, return JSON response
 	w.Header().Set("Content-Type", "application/json")
 	w.Header().Set("HX-Trigger", "urlsChanged")
-	json.NewEncoder(w).Encode(response)
+	err = json.NewEncoder(w).Encode(response)
+	if err != nil {
+		return
+	}
 }
 
 // Helper functions

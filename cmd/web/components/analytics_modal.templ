@@ -36,6 +36,7 @@ templ AnalyticsModal(analytics *shortener.URLAnalytics) {
                                 htmx.trigger('#my-urls', 'urlsChanged');
                             }"
 						>
+						    <label>
 							<input
 								type="datetime-local"
 								name="expires_at"
@@ -46,6 +47,7 @@ templ AnalyticsModal(analytics *shortener.URLAnalytics) {
 								min={ time.Now().Format("2006-01-02T15:04") }
 								step="60"
 							/>
+							</label>
 							<script>
                                 document.querySelector('.modal input[name="expires_at"]').addEventListener('change', function(e) {
                                     const date = new Date(e.target.value);
