@@ -18,19 +18,6 @@ var (
 	geoIPOnce     sync.Once
 )
 
-/* //TODO: Remove this comment block after testing
-
-Locally Test GeoIPService:
-curl -H "X-Forwarded-For: IP_ADRESSE" http://localhost:PORT/SHORTCODE
-
-Use:
-	8.8.8.8 = US (Google DNS)
-	185.86.151.11 = GB
-	2.2.2.2 = SE
-	203.104.128.1 = JP
-	103.1.1.1 = AU
-*/
-
 // GetGeoIPService returns a singleton instance of GeoIPService
 func GetGeoIPService() *GeoIPService {
 	geoIPOnce.Do(func() {
@@ -104,6 +91,9 @@ func (g *GeoIPService) GetLocation(ipAddr string) *LocationInfo {
 // Close releases the GeoIP database resources
 func (g *GeoIPService) Close() {
 	if g.reader != nil {
-		g.reader.Close()
+		err := g.reader.Close()
+		if err != nil {
+			return
+		}
 	}
 }
