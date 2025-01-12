@@ -8,9 +8,10 @@ import (
 
 // Config holds server configuration
 type Config struct {
-	Port   int
-	Secret string
-	Env    string
+	Port    int
+	Secret  string
+	Env     string
+	BaseURL string
 }
 
 // NewConfig creates a server configuration from environment variables
@@ -30,9 +31,15 @@ func NewConfig() (*Config, error) {
 		env = "development"
 	}
 
+	baseURL := os.Getenv("BASE_URL")
+	if baseURL == "" {
+		baseURL = "http://localhost" // TODO: Update this to production URL
+	}
+
 	return &Config{
-		Port:   port,
-		Secret: secret,
-		Env:    env,
+		Port:    port,
+		Secret:  secret,
+		Env:     env,
+		BaseURL: baseURL,
 	}, nil
 }

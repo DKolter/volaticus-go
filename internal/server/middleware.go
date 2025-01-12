@@ -13,8 +13,9 @@ func (s *Server) AuthMiddleware(ja *jwtauth.JWTAuth) func(http.Handler) http.Han
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			token, _, err := jwtauth.FromContext(r.Context())
 
-			// Allow static files without authentication
+			// Allow static files and shortened URLs without authentication
 			if strings.HasPrefix(r.URL.Path, "/static/") ||
+				strings.HasPrefix(r.URL.Path, "/s/") ||
 				strings.HasSuffix(r.URL.Path, ".css") ||
 				strings.HasSuffix(r.URL.Path, ".js") ||
 				strings.HasSuffix(r.URL.Path, ".png") ||

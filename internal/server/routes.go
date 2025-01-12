@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"net/http"
 	"volaticus-go/cmd/web"
+	"volaticus-go/cmd/web/handlers"
 	"volaticus-go/internal/shortener"
 
 	"github.com/go-chi/chi/v5"
@@ -84,16 +85,27 @@ func (s *Server) RegisterRoutes() http.Handler {
 	// URL Shortener routes
 	shortenerService := shortener.NewService(
 		shortener.NewPostgresRepository(s.db.DB()),
-		fmt.Sprintf("http://localhost:%d", s.config.Port), // TODO: get from config
+		fmt.Sprintf("%s:%d", s.config.BaseURL, s.config.Port), // Use config BaseURL
 	)
-	shortenerHandler := shortener.NewHandler(shortenerService)
+	shortenerHandler := handlers.NewHandler(shortenerService)
 
-	// Frontend route
-	r.Get("/url-short", s.handleUrlShort)
+	// Frontend routes
+	r.Route("/url-short", func(r chi.Router) {
+		r.Get("/", s.handleUrlShort)                       // Main page
+		r.Get("/list", shortenerHandler.HandleGetUserURLs) // Get user's URLs
+	})
 
-	// API/Form routes
-	r.Post("/url-short/shorten", shortenerHandler.HandleShortenForm)
-	r.Get("/{shortCode}", shortenerHandler.HandleRedirect)
+	// API routes for URL shortener
+	r.Route("/api/urls", func(r chi.Router) {
+		r.Post("/", shortenerHandler.HandleCreateShortURL)     // Create via API
+		r.Post("/shorten", shortenerHandler.HandleShortenForm) // Create via form
+		r.Get("/{urlID}", shortenerHandler.HandleGetURLAnalytics)
+		r.Delete("/{urlID}", shortenerHandler.HandleDeleteURL)
+		r.Put("/{urlID}/expiration", shortenerHandler.HandleUpdateExpiration)
+	})
+
+	// Public route for redirecting
+	r.Get("/s/{shortCode}", shortenerHandler.HandleRedirect)
 
 	return r
 }

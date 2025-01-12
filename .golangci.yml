@@ -1,0 +1,4 @@
+run:
+  exclude-dirs:
+    - cmd/web/components
+    - cmd/web/pages

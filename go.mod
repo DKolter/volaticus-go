@@ -3,7 +3,7 @@ module volaticus-go
 go 1.23
 
 require (
-	github.com/a-h/templ v0.2.793
+	github.com/a-h/templ v0.3.819
 	github.com/go-chi/chi/v5 v5.1.0
 	github.com/go-chi/cors v1.2.1
 	github.com/go-chi/jwtauth/v5 v5.3.2
@@ -16,6 +16,8 @@ require (
 	github.com/testcontainers/testcontainers-go/modules/postgres v0.34.0
 	golang.org/x/crypto v0.31.0
 )
+
+require github.com/oschwald/maxminddb-golang v1.13.0 // indirect
 
 require (
 	dario.cat/mergo v1.0.0 // indirect
@@ -62,6 +64,7 @@ require (
 	github.com/morikuni/aec v1.0.0 // indirect
 	github.com/opencontainers/go-digest v1.0.0 // indirect
 	github.com/opencontainers/image-spec v1.1.0 // indirect
+	github.com/oschwald/geoip2-golang v1.11.0
 	github.com/pkg/errors v0.9.1 // indirect
 	github.com/pmezard/go-difflib v1.0.0 // indirect
 	github.com/power-devops/perfstat v0.0.0-20210106213030-5aafc221ea8c // indirect
