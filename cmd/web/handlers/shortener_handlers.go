@@ -89,7 +89,7 @@ func (h *Handler) HandleRedirect(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	http.Redirect(w, r, originalURL, http.StatusMovedPermanently)
+	http.Redirect(w, r, originalURL, http.StatusTemporaryRedirect)
 }
 
 func (h *Handler) HandleGetUserURLs(w http.ResponseWriter, r *http.Request) {
