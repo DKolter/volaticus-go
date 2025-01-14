@@ -15,6 +15,7 @@ type APIResponse struct {
 // FileUploadData represents the data associated with a file upload.
 // It contains the filename and the size of the uploaded file.
 type FileUploadData struct {
-	Filename string `json:"filename"`
-	Size     int64  `json:"size"`
+  FileURL     string `json:"file_url"`
+	OriginalName     string `json:"original_name"`
+	UnixFilename string `json:"unix_filename"`
 }
