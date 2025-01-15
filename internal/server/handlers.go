@@ -1,16 +1,11 @@
 package server
 
 import (
-	"fmt"
-	"io"
 	"log"
 	"net/http"
-	"os"
-	"path/filepath"
 	"volaticus-go/cmd/web/components"
 	"volaticus-go/cmd/web/pages"
 	"volaticus-go/internal/context"
-	"volaticus-go/internal/uploader"
 
 	"github.com/a-h/templ"
 )
@@ -88,85 +83,84 @@ func (s *Server) healthHandler(w http.ResponseWriter, r *http.Request) {
 	s.sendJSON(w, http.StatusOK, true, "Health check successful", health)
 }
 
-func (s *Server) handleFileUpload(w http.ResponseWriter, r *http.Request) {
-	// r.Body = http.MaxBytesReader(w, r.Body, MaxFileSize)
-	//
-	// if err := r.ParseMultipartForm(MaxFileSize); err != nil {
-	// 	s.sendJSON(w, http.StatusRequestEntityTooLarge, false, "File too large", nil)
-	// 	return
-	// }
-	//
-	// file, header, err := r.FormFile("file")
-	// if err != nil {
-	// 	s.sendJSON(w, http.StatusBadRequest, false, "Invalid file", nil)
-	// 	return
-	// }
-	// defer file.Close()
-	//
-	// if err := os.MkdirAll(UploadDir, 0755); err != nil {
-	// 	log.Printf("Error creating upload directory: %v", err)
-	// 	s.sendJSON(w, http.StatusInternalServerError, false, "Failed to create upload directory", nil)
-	// 	return
-	// }
-	//
-	// dst, err := os.Create(filepath.Join(UploadDir, header.Filename))
-	// if err != nil {
-	// 	log.Printf("Error creating file: %v", err)
-	// 	s.sendJSON(w, http.StatusInternalServerError, false, "Failed to create file", nil)
-	// 	return
-	// }
-	// defer dst.Close()
-	//
-	// if _, err := io.Copy(dst, file); err != nil {
-	// 	log.Printf("Error saving file: %v", err)
-	// 	s.sendJSON(w, http.StatusInternalServerError, false, "Failed to save file", nil)
-	// 	return
-	// }
-	//
-	// s.sendJSON(w, http.StatusOK, true, "File uploaded successfully", FileUploadData{
-	// 	Filename: header.Filename,
-	// 	Size:     header.Size,
-	// })
+// func (s *Server) handleFileUpload(w http.ResponseWriter, r *http.Request) {
+// r.Body = http.MaxBytesReader(w, r.Body, MaxFileSize)
+//
+// if err := r.ParseMultipartForm(MaxFileSize); err != nil {
+// 	s.sendJSON(w, http.StatusRequestEntityTooLarge, false, "File too large", nil)
+// 	return
+// }
+//
+// file, header, err := r.FormFile("file")
+// if err != nil {
+// 	s.sendJSON(w, http.StatusBadRequest, false, "Invalid file", nil)
+// 	return
+// }
+// defer file.Close()
+//
+// if err := os.MkdirAll(UploadDir, 0755); err != nil {
+// 	log.Printf("Error creating upload directory: %v", err)
+// 	s.sendJSON(w, http.StatusInternalServerError, false, "Failed to create upload directory", nil)
+// 	return
+// }
+//
+// dst, err := os.Create(filepath.Join(UploadDir, header.Filename))
+// if err != nil {
+// 	log.Printf("Error creating file: %v", err)
+// 	s.sendJSON(w, http.StatusInternalServerError, false, "Failed to create file", nil)
+// 	return
+// }
+// defer dst.Close()
+//
+// if _, err := io.Copy(dst, file); err != nil {
+// 	log.Printf("Error saving file: %v", err)
+// 	s.sendJSON(w, http.StatusInternalServerError, false, "Failed to save file", nil)
+// 	return
+// }
+//
+// s.sendJSON(w, http.StatusOK, true, "File uploaded successfully", FileUploadData{
+// 	Filename: header.Filename,
+// 	Size:     header.Size,
+// })
 
-	// Parse multipart form
-	r.Body = http.MaxBytesReader(w, r.Body, MaxFileSize)
-	if err := r.ParseMultipartForm(MaxFileSize); err != nil {
-		s.sendJSON(w, http.StatusRequestEntityTooLarge, false, "File too large", nil)
-		return
-	}
+// Parse multipart form
+// r.Body = http.MaxBytesReader(w, r.Body, MaxFileSize)
+// if err := r.ParseMultipartForm(MaxFileSize); err != nil {
+// 	s.sendJSON(w, http.StatusRequestEntityTooLarge, false, "File too large", nil)
+// 	return
+// }
 
-	file, header, err := r.FormFile("file")
-	if err != nil {
-		s.sendJSON(w, http.StatusBadRequest, false, "Invalid file", nil)
-		return
-	}
-	defer file.Close()
+// file, header, err := r.FormFile("file")
+// if err != nil {
+// 	s.sendJSON(w, http.StatusBadRequest, false, "Invalid file", nil)
+// 	return
+// }
+// defer file.Close()
 
-	// Get user from context
-	user := context.GetUserFromContext(r.Context())
-	if user == nil {
-		s.sendJSON(w, http.StatusUnauthorized, false, "Unauthorized", nil)
-		return
-	}
+// // Get user from context
+// user := context.GetUserFromContext(r.Context())
+// if user == nil {
+// 	s.sendJSON(w, http.StatusUnauthorized, false, "Unauthorized", nil)
+// 	return
+// }
 
-	// Use uploader service
-	uploadService := uploader.NewService(
-		uploader.NewPostgresRepository(s.db.DB()),
-		fmt.Sprintf("http://localhost:%d", s.config.Port),
-	)
+// // Use uploader service
+// uploadService := uploader.NewService(
+// 	uploader.NewPostgresRepository(s.db.DB()),
+// 	fmt.Sprintf("http://localhost:%d", s.config.Port),
+// )
 
-	response, err := uploadService.UploadFile(file, header, user.ID)
-	if err != nil {
-		log.Printf("Error uploading file: %v", err)
-		s.sendJSON(w, http.StatusInternalServerError, false, "Failed to upload file", nil)
-		return
-	}
+// response, err := uploadService.UploadFile(file, header, user.ID)
+// if err != nil {
+// 	log.Printf("Error uploading file: %v", err)
+// 	s.sendJSON(w, http.StatusInternalServerError, false, "Failed to upload file", nil)
+// 	return
+// }
 
-	// Use the response from the service
-	s.sendJSON(w, http.StatusOK, true, "File uploaded successfully", FileUploadData{
-		FileURL:      response.FileUrl,
-		Filename:     response.OriginalName,
-		UnixFilename: response.UnixFilename,
-	})
-
-}
+// // Use the response from the service
+// s.sendJSON(w, http.StatusOK, true, "File uploaded successfully", FileUploadData{
+// 	FileURL:      response.FileUrl,
+// 	Filename:     response.OriginalName,
+// 	UnixFilename: response.UnixFilename,
+// })
+// }

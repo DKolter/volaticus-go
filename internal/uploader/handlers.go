@@ -1,30 +1,56 @@
 package uploader
 
 import (
-	"encoding/json"
 	"fmt"
-	"io"
 	"log"
 	"net/http"
 	"path/filepath"
-	"strings"
+	"volaticus-go/cmd/web/components"
+	"volaticus-go/cmd/web/pages"
 	userctx "volaticus-go/internal/context"
 
 	"github.com/go-chi/chi/v5"
 )
 
 type Handler struct {
-  service *Service
+	service *Service
 }
 
 func NewHandler(service *Service) *Handler {
-  return &Handler{
-    service: service,
-  }
+	return &Handler{
+		service: service,
+	}
 }
 
-// handles file upload and returns URLs for accessing the files
-func (h *Handler) handleUpload(w http.ResponseWriter, r *http.Request) {
+// HandleVerifyFile handles file validation
+func (h *Handler) HandleVerifyFile(w http.ResponseWriter, r *http.Request) {
+	file, header, err := r.FormFile("file")
+	if err != nil {
+		components.ValidationError("Invalid file").Render(r.Context(), w)
+		return
+	}
+	defer file.Close()
+
+	// Validate the file using service
+	result := h.service.VerifyFile(file, header)
+
+	if !result.IsValid {
+		err := components.ValidationError(result.Error).Render(r.Context(), w)
+		if err != nil {
+			log.Printf("Error rendering validation: %v", err)
+		}
+		return
+	}
+
+	// Render success component
+	err = components.ValidationSuccess(result.FileName, result.FileSize, result.ContentType).Render(r.Context(), w)
+	if err != nil {
+		log.Printf("Error rendering validation success: %v", err)
+	}
+}
+
+// HandleUpload handles file upload
+func (h *Handler) HandleUpload(w http.ResponseWriter, r *http.Request) {
 	file, header, err := r.FormFile("file")
 	if err != nil {
 		http.Error(w, "Invalid File", http.StatusBadRequest)
@@ -33,74 +59,78 @@ func (h *Handler) handleUpload(w http.ResponseWriter, r *http.Request) {
 	defer file.Close()
 
 	userContext := userctx.GetUserFromContext(r.Context())
-  if userContext == nil {
-    http.Error(w, "Unauthorized", http.StatusUnauthorized)
-    return
-  }
+	if userContext == nil {
+		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		return
+	}
 
-  if header.Header.Get("Content-Type") == "" {
-    buff := make([]byte, 512)
-    n, err := file.Read(buff)
-    if err != nil && err != io.EOF {
-      http.Error(w, "Error reading file", http.StatusInternalServerError)
-      return
-    }
+	// Parse the URL type from the form
+	urlType := r.FormValue("url_type")
+	if urlType == "" {
+		urlType = "default" // Use default if not specified
+	}
 
-    if _,err := file.Seek(0,0); err != nil {
-      http.Error(w, "Error processing file", http.StatusInternalServerError)
-      return
-    }
-    filetype := http.DetectContentType(buff[:n])
-    header.Header.Set("Content-Type", filetype)
-  }
+	// Convert string to URLType
+	parsedURLType, err := ParseURLType(urlType)
+	if err != nil {
+		http.Error(w, "Invalid URL type", http.StatusBadRequest)
+		return
+	}
 
-  response, err := h.service.UploadFile(file, header, userContext.ID)
-  if err != nil {
-    log.Printf("Error uploading file: %v", err)
-    http.Error(w, "Error uploading file", http.StatusInternalServerError)
-    return
-  }
+	// Create upload request
+	uploadReq := &UploadRequest{
+		File:    file,
+		Header:  header,
+		URLType: parsedURLType,
+		UserID:  userContext.ID,
+	}
 
-  // Return JSON response
-  w.Header().Set("Content-Type", "application/json")
-  if err := json.NewEncoder(w).Encode(response); err != nil {
-    log.Printf("Error encoding response: %v", err)
-  }
+	response, err := h.service.UploadFile(uploadReq)
+	if err != nil {
+		log.Printf("Error uploading file: %v", err)
+		http.Error(w, "Error uploading file", http.StatusInternalServerError)
+		return
+	}
+
+	// Render success template
+	if err := pages.UploadSuccess(response.FileUrl, response.OriginalName).Render(r.Context(), w); err != nil {
+		log.Printf("Error rendering success template: %v", err)
+		http.Error(w, "Error rendering response", http.StatusInternalServerError)
+		return
+	}
 }
 
+// HandleServeFile serves the uploaded file
 func (h *Handler) HandleServeFile(w http.ResponseWriter, r *http.Request) {
-  filename := chi.URLParam(r, "filename")
-  if filename == "" {
-    http.Error(w, "File not found", http.StatusNotFound)
-    return
-  }
+	urlvalue := chi.URLParam(r, "fileUrl")
+	log.Printf("Got Serve File Request: %s", urlvalue)
+	if urlvalue == "" {
+		http.Error(w, "File not found", http.StatusNotFound)
+		return
+	}
 
-  file, err := h.service.GetFile(filename)
-  if err != nil {
-    http.Error(w, "File not found", http.StatusNotFound)
-    return
-  }
+	file, err := h.service.GetFile(urlvalue)
+	if err != nil {
+		http.Error(w, "File not found", http.StatusNotFound)
+		return
+	}
+	log.Printf("Serving file: %s", file.OriginalName)
 
-  contentType := file.MimeType
-  if contentType == "" {
-    contentType = "application/octet-stream"
-  }
-  w.Header().Set("Content-Type", contentType)
+	contentType := file.MimeType
+	if contentType == "" {
+		contentType = "application/octet-stream"
+	}
+	w.Header().Set("Content-Type", contentType)
 
-  if r.URL.Query().Get("download") == "true" {
-    w.Header().Set("Content-Disposition", fmt.Sprintf(`attachment; filename="%s"`, file.OriginalName))
-  } else {
-    w.Header().Set("Content-Disposition", fmt.Sprintf(`inline; filename="%s"`, file.OriginalName))
-  }
+	if r.URL.Query().Get("download") == "true" {
+		w.Header().Set("Content-Disposition", fmt.Sprintf(`attachment; filename="%s"`, file.OriginalName))
+	} else {
+		w.Header().Set("Content-Disposition", fmt.Sprintf(`inline; filename="%s"`, file.OriginalName))
+	}
 
-  if strings.HasPrefix(contentType, "video/") || strings.HasPrefix(contentType, "audio/") {
-    http.ServeFile(w,r,filepath.Join("uploads", filename))
-    return
-  }
-
-  if err := h.service.ServeFile(w,filename); err != nil {
-    log.Printf("Error serving file: %v", err)
-    http.Error(w, "Error serving file", http.StatusInternalServerError)
-    return
-  }
+	ext := getExtensionFromMimeType(file.MimeType)
+	path := filepath.Join("uploads", fmt.Sprintf("%d%s", file.UnixFilename, ext))
+	log.Printf("Serving file from path: %s", path)
+	http.ServeFile(w, r, path)
+	return
 }

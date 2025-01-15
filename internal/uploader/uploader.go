@@ -18,7 +18,7 @@ type UploadedFile struct {
 	CreatedAt      time.Time  `db:"created_at" json:"created_at"`
 	LastAccessedAt *time.Time `db:"last_accessed_at" json:"last_accessed_at,omitempty"`
 	AccessCount    int        `db:"access_count" json:"access_count"`
-	ExpiredAt      time.Time  `db:"expired_at" json:"expired_at"`
+	ExpiredAt      time.Time  `db:"expires_at" json:"expires_at"`
 }
 
 type FileURL struct {
@@ -32,15 +32,15 @@ type FileURL struct {
 type Repository interface {
 	CreateWithURLs(file *UploadedFile, urls []FileURL) error
 	GetByUnixFilename(code string) (*UploadedFile, error)
+	GetByURLValue(urlValue string) (*UploadedFile, error)
 	IncrementAccessCount(id uuid.UUID) error
 }
 
 type CreateFileURLRequest struct {
-  URL string `json:"url" validate:"required,url"`
+	URL string `json:"url" validate:"required,url"`
 }
 
 type CreateFileURLResponse struct {
-
 }
 
 type CreateFileRequest struct {
@@ -48,7 +48,7 @@ type CreateFileRequest struct {
 }
 
 type CreateFileResponse struct {
-	FileUrl     string `json:"short_url"`
+	FileUrl      string `json:"short_url"`
 	OriginalName string `json:"original_name"`
 	UnixFilename string `json:"unix_filename"`
 }

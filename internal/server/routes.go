@@ -58,6 +58,7 @@ func (s *Server) RegisterRoutes() http.Handler {
 		r.Get("/register", s.handleRegister)
 		r.Post("/register", s.userHandler.HandleRegister)
 		r.Get("/health", s.healthHandler)
+		r.Get("/f/{fileUrl}", s.fileHandler.HandleServeFile)
 	})
 
 	// Protected routes
@@ -66,6 +67,8 @@ func (s *Server) RegisterRoutes() http.Handler {
 		r.Get("/", s.handleHome)
 		r.Get("/url-short", s.handleUrlShort)
 		r.Get("/upload", s.handleUpload)
+		r.Post("/upload/verify", s.fileHandler.HandleVerifyFile)
+		r.Post("/upload", s.fileHandler.HandleUpload)
 		r.Get("/files", s.handleFiles)
 		r.Get("/settings", s.handleSettings)
 		r.Get("/settings/token-modal", s.showTokenModal)
@@ -78,7 +81,7 @@ func (s *Server) RegisterRoutes() http.Handler {
 		// API versioning
 		r.Route("/v1", func(r chi.Router) {
 			// TODO: add middleware to application token / auth middleware
-			r.Post("/upload", s.handleFileUpload)
+			// r.Post("/upload", s.handleFileUpload)
 		})
 	})
 

@@ -1,0 +1,50 @@
+package components
+
+import "fmt"
+
+func formatFileSize(size int64) string {
+	const unit = 1024
+	if size < unit {
+		return fmt.Sprintf("%d B", size)
+	}
+	div, exp := int64(unit), 0
+	for n := size / unit; n >= unit; n /= unit {
+		div *= unit
+		exp++
+	}
+	return fmt.Sprintf("%.1f %cB", float64(size)/float64(div), "KMGTPE"[exp])
+}
+
+templ ValidationSuccess(filename string, size int64, mimetype string) {
+	<div class="text-green-500 text-sm flex items-center space-x-2">
+		<svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+			<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
+		</svg>
+		<span>File verified successfully: { filename } ({ formatFileSize(size) })</span>
+	</div>
+	<script>
+        document.getElementById('upload-button').disabled = false;
+    </script>
+}
+
+templ ValidationError(message string) {
+	<div class="text-red-500 text-sm flex items-center space-x-2">
+		<svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+			<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+		</svg>
+		<span>{ message }</span>
+	</div>
+	<script>
+        document.getElementById('upload-button').disabled = true;
+    </script>
+}
+
+templ ValidationLoading() {
+	<div class="text-yellow-500 text-sm flex items-center space-x-2">
+		<svg class="h-5 w-5 animate-spin" fill="none" viewBox="0 0 24 24">
+			<circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+			<path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+		</svg>
+		<span>Verifying file...</span>
+	</div>
+}
