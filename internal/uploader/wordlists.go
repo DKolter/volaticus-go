@@ -20,8 +20,8 @@ var (
 		"understanding", "valiant", "warm", "xenodochial", "zany",
 		"adaptable", "brilliant", "confident", "dazzling", "enthusiastic",
 		"friendly", "gentle", "honest", "imaginative", "jubilant",
-		"kind-hearted", "lovable", "meticulous", "natural", "observant",
-		"persistent", "quick-witted", "reliable", "spirited", "thought-provoking",
+		"kindhearted", "lovable", "meticulous", "natural", "observant",
+		"persistent", "quickwitted", "reliable", "spirited", "thoughtprovoking",
 		"unassuming", "vivacious", "wonderful", "xenial", "zestful",
 	}
 
@@ -35,7 +35,7 @@ var (
 		"flamingo", "goat", "hedgehog", "impala", "jellyfish",
 		"koala", "lemur", "moose", "newt", "ostrich",
 		"panda", "quail", "raccoon", "sheep", "toucan",
-		"urchin", "vole", "walrus", "x-ray fish", "yak",
+		"urchin", "vole", "walrus", "xray fish", "yak",
 		"antelope", "beaver", "cougar", "deer", "emu",
 		"ferret", "gecko", "hamster", "ibis", "jackal",
 		"kudu", "llama", "marmot", "numbat", "oryx",
@@ -58,7 +58,7 @@ var (
 		"forest green", "grape", "honey", "ivory", "khaki",
 		"lime", "magenta", "neon green", "ocean", "peach",
 		"quince", "rose gold", "sapphire", "taupe", "umber",
-		"vermillion", "wine", "xenon blue", "yellow-green", "zinc",
+		"vermillion", "wine", "xenon blue", "blurple", "zinc",
 		"apricot", "bronze", "cobalt", "dandelion", "ebony",
 		"firebrick", "glacier", "harvest gold", "iris", "jasmine",
 		"kiwi", "lemon", "mint", "neon pink", "obsidian",
