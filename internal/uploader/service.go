@@ -212,12 +212,9 @@ func StartExpiredFilesWorker(svc *Service, interval time.Duration) {
 	ticker := time.NewTicker(interval)
 
 	go func() {
-		for {
-			select {
-			case <-ticker.C:
-				if err := svc.CleanupExpiredFiles(); err != nil {
-					log.Printf("Error cleaning up expired files: %v", err)
-				}
+		for range ticker.C {
+			if err := svc.CleanupExpiredFiles(); err != nil {
+				log.Printf("Error cleaning up expired files: %v", err)
 			}
 		}
 	}()

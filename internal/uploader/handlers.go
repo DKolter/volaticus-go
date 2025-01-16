@@ -26,7 +26,10 @@ func NewHandler(service *Service) *Handler {
 func (h *Handler) HandleVerifyFile(w http.ResponseWriter, r *http.Request) {
 	file, header, err := r.FormFile("file")
 	if err != nil {
-		components.ValidationError("Invalid file").Render(r.Context(), w)
+		err := components.ValidationError("Invalid file").Render(r.Context(), w)
+		if err != nil {
+			log.Printf("Error rendering validation error: %v", err)
+		}
 		return
 	}
 	defer file.Close()
