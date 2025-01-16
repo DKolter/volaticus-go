@@ -19,7 +19,7 @@ const (
 	// TODO: Move to config
 	uploadDir = "./uploads"
 	maxSize   = 100 << 20 // 100MB
-	expiresIn = 1 * time.Minute
+	expiresIn = 24 * time.Hour
 )
 
 type Service struct {

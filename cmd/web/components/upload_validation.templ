@@ -33,7 +33,6 @@ templ ValidationSuccess(filename string, size int64, mimetype string) {
 }
 
 templ ValidationError(message string) {
-	<div id="upload-button" hx-swap-oob="true">Swap me directly!</div>
 	<div class="text-red-500 text-sm flex items-center space-x-2" hx-trigger="load">
 		<svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
 			<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
@@ -48,7 +47,7 @@ templ ValidationError(message string) {
 		disabled
 		class="rounded-md bg-indigo-500 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-indigo-400 disabled:bg-gray-500 disabled:cursor-not-allowed"
 	>
-		but why
+		Upload
 	</button>
 }
 
