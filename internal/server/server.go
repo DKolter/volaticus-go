@@ -27,6 +27,7 @@ type Server struct {
 
 // NewServer creates a new server instance
 func NewServer(config *Config, db database.Service) (*Server, error) {
+	// FIXME: Does this hold too many dependencies?
 	// Initialize repositories
 	userRepo := user.NewPostgresUserRepository(db.DB())
 	tokenRepo := auth.NewPostgresTokenRepository(db.DB())
@@ -34,7 +35,10 @@ func NewServer(config *Config, db database.Service) (*Server, error) {
 
 	// Initialize auth service
 	authService := auth.NewService(config.Secret, tokenRepo)
+
+	// Initialize file service & start expired files worker
 	fileService := uploader.NewService(fileRepo, "")
+	uploader.StartExpiredFilesWorker(fileService, 1*time.Minute)
 
 	// Initialize handlers
 	userHandler := user.NewHandler(userRepo, authService)

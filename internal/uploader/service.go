@@ -10,13 +10,16 @@ import (
 	"path/filepath"
 	"strings"
 	"time"
+	"volaticus-go/internal/models"
 
 	"github.com/google/uuid"
 )
 
 const (
+	// TODO: Move to config
 	uploadDir = "./uploads"
 	maxSize   = 100 << 20 // 100MB
+	expiresIn = 1 * time.Minute
 )
 
 type Service struct {
@@ -86,6 +89,7 @@ func (s *Service) VerifyFile(file multipart.File, header *multipart.FileHeader) 
 	result.ContentType = contentType
 
 	// List of allowed MIME types
+	// TODO: Move to config
 	allowedTypes := map[string]bool{
 		"image/jpeg":         true,
 		"image/png":          true,
@@ -113,7 +117,7 @@ func (s *Service) VerifyFile(file multipart.File, header *multipart.FileHeader) 
 	return result
 }
 
-func (s *Service) UploadFile(req *UploadRequest) (*CreateFileResponse, error) {
+func (s *Service) UploadFile(req *UploadRequest) (*models.CreateFileResponse, error) {
 	// Verify file first
 	validation := s.VerifyFile(req.File, req.Header)
 	if !validation.IsValid {
@@ -128,9 +132,7 @@ func (s *Service) UploadFile(req *UploadRequest) (*CreateFileResponse, error) {
 
 	// Add extension if not present
 	ext := filepath.Ext(req.Header.Filename)
-	if ext == "" {
-		ext = getExtensionFromMimeType(validation.ContentType)
-	}
+
 	if ext != "" && !strings.HasSuffix(urlValue, ext) {
 		urlValue = urlValue + ext
 	}
@@ -144,38 +146,26 @@ func (s *Service) UploadFile(req *UploadRequest) (*CreateFileResponse, error) {
 	}
 
 	// Create uploaded file record
-	uploadedFile := &UploadedFile{
-		ID:           uuid.New(),
-		OriginalName: req.Header.Filename,
-		UnixFilename: unixTimestamp,
-		MimeType:     validation.ContentType,
-		FileSize:     uint64(req.Header.Size),
-		UserID:       req.UserID,
-		CreatedAt:    time.Now(),
-		AccessCount:  0,
-		ExpiredAt:    time.Now().AddDate(0, 0, 7), // 7 days expiry
-	}
-
-	// Create URL record
-	urls := []FileURL{
-		{
-			ID:        uuid.New(),
-			FileID:    uploadedFile.ID,
-			UrlType:   req.URLType.String(),
-			UrlValue:  urlValue,
-			CreatedAt: time.Now(),
-		},
+	uploadedFile := &models.UploadedFile{
+		ID:             uuid.New(),
+		OriginalName:   req.Header.Filename,
+		UniqueFilename: unixFilename,
+		MimeType:       validation.ContentType,
+		FileSize:       uint64(req.Header.Size),
+		UserID:         req.UserID,
+		CreatedAt:      time.Now(),
+		AccessCount:    0,
+		ExpiredAt:      time.Now().Add(expiresIn),
+		URLValue:       urlValue,
 	}
 
 	// Save to database
-	if err := s.repo.CreateWithURLs(uploadedFile, urls); err != nil {
-		// Clean up the file if database operation fails
+	if err := s.repo.CreateWithURL(uploadedFile, urlValue); err != nil {
 		os.Remove(filepath.Join(uploadDir, urlValue))
 		return nil, fmt.Errorf("saving to database: %w", err)
 	}
 
-	return &CreateFileResponse{
-		// http://localhost:8080/localhost/f/beautiful-crimson-rabbit.png
+	return &models.CreateFileResponse{
 		FileUrl:      fmt.Sprintf("%s/f/%s", s.baseURL, urlValue),
 		OriginalName: req.Header.Filename,
 		UnixFilename: urlValue,
@@ -183,7 +173,7 @@ func (s *Service) UploadFile(req *UploadRequest) (*CreateFileResponse, error) {
 }
 
 // GetFile retrieves file information using the urlvalue
-func (s *Service) GetFile(fileurl string) (*UploadedFile, error) {
+func (s *Service) GetFile(fileurl string) (*models.UploadedFile, error) {
 
 	file, err := s.repo.GetByURLValue(fileurl)
 	if err != nil {
@@ -213,53 +203,81 @@ func (s *Service) saveFile(file multipart.File, filename string) error {
 	return nil
 }
 
-// ServeFile writes the contents of a file to the provided writer
-func (s *Service) ServeFile(w io.Writer, filename string) error {
-	filepath := filepath.Join(uploadDir, filename)
-	file, err := os.Open(filepath)
-	if err != nil {
-		return fmt.Errorf("opening file: %w", err)
-	}
-	defer file.Close()
-
-	_, err = io.Copy(w, file)
-	if err != nil {
-		return fmt.Errorf("copying file: %w", err)
+func StartExpiredFilesWorker(svc *Service, interval time.Duration) {
+	// Initial cleanup
+	if err := svc.CleanupOrphanedFiles(); err != nil {
+		log.Printf("Error cleaning up orphaned files: %v", err)
 	}
 
+	ticker := time.NewTicker(interval)
+
+	go func() {
+		for {
+			select {
+			case <-ticker.C:
+				if err := svc.CleanupExpiredFiles(); err != nil {
+					log.Printf("Error cleaning up expired files: %v", err)
+				}
+			}
+		}
+	}()
+}
+
+// DeleteFile deletes the physical file from the disk
+func (s *Service) DeleteFile(filename string) error {
+	filePath := filepath.Join(uploadDir, filename)
+	if err := os.Remove(filePath); err != nil {
+		return fmt.Errorf("deleting file: %w", err)
+	}
 	return nil
 }
 
-// getExtensionFromMimeType returns a file extension for common mime types
-func getExtensionFromMimeType(mimeType string) string {
-	switch mimeType {
-	case "image/jpeg":
-		return ".jpg"
-	case "image/png":
-		return ".png"
-	case "image/gif":
-		return ".gif"
-	case "application/pdf":
-		return ".pdf"
-	case "text/plain":
-		return ".txt"
-	case "application/msword":
-		return ".doc"
-	case "application/vnd.openxmlformats-officedocument.wordprocessingml.document":
-		return ".docx"
-	case "video/mp4":
-		return ".mp4"
-	case "video/webm":
-		return ".webm"
-	case "audio/mpeg":
-		return ".mp3"
-	case "audio/wav", "audio/x-wav":
-		return ".wav"
-	case "audio/webm":
-		return ".weba"
-	case "application/zip", "application/x-zip-compressed":
-		return ".zip"
-	default:
-		return "" // If unknown, don't add an extension
+// CleanupExpiredFiles retrieves and deletes expired files.
+func (s *Service) CleanupExpiredFiles() error {
+	files, err := s.repo.GetExpiredFiles()
+	log.Printf("Found %d expired files\n", len(files))
+	if err != nil {
+		return err
 	}
+	for _, file := range files {
+		if err := s.repo.Delete(file.ID); err != nil {
+			log.Printf("Error deleting file %s from database: %v\n", file.ID, err)
+			continue
+		}
+		if err := s.DeleteFile(file.UniqueFilename); err != nil {
+			log.Printf("Error deleting file %s from disk: %v\n", file.UniqueFilename, err)
+		}
+	}
+	return nil
+}
+
+// CleanupOrphanedFiles deletes files in the uploadDir that are not in the database.
+func (s *Service) CleanupOrphanedFiles() error {
+	filesInDir, err := os.ReadDir(uploadDir)
+	if err != nil {
+		return fmt.Errorf("reading upload directory: %w", err)
+	}
+
+	filesInDB, err := s.repo.GetAllFiles()
+	if err != nil {
+		return fmt.Errorf("retrieving files from database: %w", err)
+	}
+
+	fileMap := make(map[string]bool)
+	for _, file := range filesInDB {
+		fileMap[file.UniqueFilename] = true
+	}
+	var deletedCount = 0
+	for _, file := range filesInDir {
+		if !fileMap[file.Name()] {
+			if err := s.DeleteFile(file.Name()); err != nil {
+				log.Printf("Error deleting orphaned file %s: %v", file.Name(), err)
+			} else {
+				deletedCount++
+			}
+		}
+	}
+	log.Printf("Deleted %d orphaned files", deletedCount)
+
+	return nil
 }

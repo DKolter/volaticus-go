@@ -65,6 +65,7 @@ itest:
 # Clean the binary
 clean:
 	@echo "Cleaning..."
+	@find cmd/web -name "*_templ.go" -type f -delete
 	@rm -f ./bin/volaticus
 
 # Live Reload

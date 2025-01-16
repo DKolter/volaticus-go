@@ -20,8 +20,8 @@ func NewURLGenerator() *URLGenerator {
 }
 
 // GenerateURL generates a URL based on the specified type
-func (g *URLGenerator) GenerateURL(fileType URLType, originalName string) (string, error) {
-	switch fileType {
+func (g *URLGenerator) GenerateURL(urlType URLType, originalName string) (string, error) {
+	switch urlType {
 	case URLTypeOriginalName:
 		return g.generateOriginalNameURL(originalName)
 	case URLTypeDefault:
@@ -35,7 +35,7 @@ func (g *URLGenerator) GenerateURL(fileType URLType, originalName string) (strin
 	case URLTypeGfycat:
 		return g.generateGfycatURL()
 	default:
-		return "", fmt.Errorf("unsupported URL type: %v", fileType)
+		return "", fmt.Errorf("unsupported URL type: %v", urlType)
 	}
 }
 
@@ -47,6 +47,7 @@ func (g *URLGenerator) generateOriginalNameURL(originalName string) (string, err
 	base = strings.ReplaceAll(base, " ", "-")
 
 	// Add a random suffix to prevent collisions
+	// TODO: I'm not sure if we need this!
 	suffix := make([]byte, 4)
 	if _, err := rand.Read(suffix); err != nil {
 		return "", err

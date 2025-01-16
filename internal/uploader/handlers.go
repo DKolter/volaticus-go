@@ -128,9 +128,8 @@ func (h *Handler) HandleServeFile(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Disposition", fmt.Sprintf(`inline; filename="%s"`, file.OriginalName))
 	}
 
-	ext := getExtensionFromMimeType(file.MimeType)
-	path := filepath.Join("uploads", fmt.Sprintf("%d%s", file.UnixFilename, ext))
+	path := filepath.Join(uploadDir, file.UniqueFilename)
 	log.Printf("Serving file from path: %s", path)
 	http.ServeFile(w, r, path)
-	return
+
 }
