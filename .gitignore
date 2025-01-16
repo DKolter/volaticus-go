@@ -37,3 +37,6 @@ bin/
 # Tailwind CSS
 cmd/web/assets/css/output.css
 tailwindcss
+
+# uploads directory
+uploads/

@@ -1,24 +1,149 @@
 package pages
 
-templ UploadPage() {
-    @DashboardLayout() {
-        <div class="px-4 py-6 sm:px-0">
-            <h1 class="text-2xl font-semibold text-white">Upload Files</h1>
-            <div class="mt-4">
-                <form class="max-w-md" hx-post="/api/upload" hx-encoding="multipart/form-data">
-                    <input type="file" name="file" 
-                        class="block w-full text-sm text-gray-400
+templ UploadForm() {
+	<form
+		class="max-w-md"
+		hx-post="/upload"
+		hx-encoding="multipart/form-data"
+		hx-indicator="#upload-indicator"
+		hx-target="#upload-result"
+	>
+		<div class="space-y-4">
+			<!-- File Input -->
+			<div>
+				<label class="block text-sm font-medium text-gray-300 mb-2">
+					Choose File
+				</label>
+				<input
+					type="file"
+					name="file"
+					hx-post="/upload/verify"
+					hx-trigger="change"
+					hx-encoding="multipart/form-data"
+					hx-target="#file-validation"
+					hx-swap="innerHTML"
+					class="block w-full text-sm text-gray-400
                         file:mr-4 file:py-2 file:px-4
                         file:rounded-md file:border-0
                         file:text-sm file:font-semibold
                         file:bg-indigo-500 file:text-white
-                        hover:file:bg-indigo-400"/>
-                    <button type="submit" 
-                        class="mt-4 rounded-md bg-indigo-500 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-indigo-400">
-                        Upload
-                    </button>
-                </form>
-            </div>
-        </div>
-    }
+                        hover:file:bg-indigo-400"
+				/>
+				<div id="file-validation" class="mt-2"></div>
+			</div>
+			<!-- URL Type Selection -->
+			<div>
+				<label class="block text-sm font-medium text-gray-300 mb-2">
+					URL Type
+				</label>
+        <select
+          name="url_type"
+          class="block w-full rounded-md border-0 bg-gray-800 py-1.5 text-white shadow-sm ring-1 ring-inset ring-white/10 focus:ring-2 focus:ring-inset focus:ring-indigo-500 sm:text-sm sm:leading-6"
+        >
+          <option value="default">Default (Timestamp)</option>
+          <option value="original_name">Original Filename</option>
+          <option value="random">Random String</option>
+          <option value="date">Date-based</option>
+          <option value="uuid">UUID</option>
+          <option value="gfycat">GfyCat Style</option>
+        </select>
+        <p class="mt-1 text-sm text-gray-500">
+          Choose how your file URL will be generated
+        </p>
+			</div>
+			<!-- Upload Button and Indicator -->
+			<div class="flex items-center space-x-4">
+				<button
+					type="submit"
+					id="upload-button"
+					disabled
+					class="rounded-md bg-indigo-500 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-indigo-400 disabled:bg-gray-500 disabled:cursor-not-allowed"
+				>
+					Upload
+				</button>
+				<div id="upload-indicator" class="htmx-indicator flex items-center">
+					<svg class="animate-spin h-5 w-5 text-indigo-500 mr-2" fill="none" viewBox="0 0 24 24">
+						<circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+						<path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+					</svg>
+					<span class="text-gray-400">Uploading...</span>
+				</div>
+			</div>
+			<!-- Upload Result -->
+			<div id="upload-result" class="mt-4"></div>
+		</div>
+	</form>
+}
+
+// Update the upload page to use this form
+templ UploadPage() {
+	@DashboardLayout() {
+		<div class="px-4 py-6 sm:px-0">
+			<h1 class="text-2xl font-semibold text-white">Upload Files</h1>
+			<div class="mt-4">
+				@UploadForm()
+				<!-- Recent Uploads Section -->
+				<div class="mt-8">
+					<h2 class="text-xl font-semibold text-white mb-4">Recent Uploads</h2>
+					<div id="recent-uploads" hx-get="/api/files" hx-trigger="load, uploaded from:body"></div>
+				</div>
+			</div>
+		</div>
+		<style>
+			.htmx-indicator {
+				display: none;
+			}
+			.htmx-request .htmx-indicator {
+				display: flex;
+			}
+			.htmx-request.htmx-indicator {
+				display: flex;
+			}
+		</style>
+		<script>
+			// Handle successful upload
+			document.body.addEventListener('htmx:afterRequest', function(evt) {
+				if (evt.detail.successful && evt.detail.pathInfo.requestPath === '/api/upload') {
+					// Clear the file input
+					document.querySelector('input[type="file"]').value = '';
+					// Clear the validation message
+					document.querySelector('#file-validation').innerHTML = '';
+					// Disable the upload button
+					document.querySelector('#upload-button').disabled = true;
+					// Trigger event to refresh recent uploads
+					htmx.trigger('#recent-uploads', 'uploaded');
+				}
+			});
+
+			// Handle file validation complete
+			document.body.addEventListener('htmx:afterRequest', function(evt) {
+				if (evt.detail.successful && evt.detail.pathInfo.requestPath === '/upload/verify') {
+					const button = document.querySelector('#upload-button');
+					// If the validation response contains an error message, disable the button
+					button.disabled = evt.detail.xhr.response.includes('error');
+				}
+			});
+		</script>
+	}
+}
+
+// Template for successful upload result
+templ UploadSuccess(fileUrl string, fileName string) {
+	<div class="bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded relative" role="alert">
+		<p class="font-bold">Upload Successful!</p>
+		<p class="text-sm">
+			File <span class="font-semibold">{ fileName }</span> has been uploaded successfully.
+		</p>
+		<p class="text-sm mt-2">
+			<a href={ templ.SafeURL(fileUrl) } class="text-green-700 underline" target="_blank">View File</a>
+		</p>
+	</div>
+}
+
+// Template for upload error
+templ UploadError(message string) {
+	<div class="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative" role="alert">
+		<p class="font-bold">Upload Failed!</p>
+		<p class="text-sm">{ message }</p>
+	</div>
 }

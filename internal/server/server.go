@@ -11,6 +11,7 @@ import (
 
 	"volaticus-go/internal/auth"
 	"volaticus-go/internal/database"
+	"volaticus-go/internal/uploader"
 	"volaticus-go/internal/user"
 )
 
@@ -21,20 +22,28 @@ type Server struct {
 	authService *auth.Service
 	authHandler *auth.Handler
 	userHandler *user.Handler
+	fileHandler *uploader.Handler
 }
 
 // NewServer creates a new server instance
 func NewServer(config *Config, db database.Service) (*Server, error) {
+	// FIXME: Does this hold too many dependencies?
 	// Initialize repositories
 	userRepo := user.NewPostgresUserRepository(db.DB())
 	tokenRepo := auth.NewPostgresTokenRepository(db.DB())
+	fileRepo := uploader.NewPostgresRepository(db.DB())
 
 	// Initialize auth service
 	authService := auth.NewService(config.Secret, tokenRepo)
 
+	// Initialize file service & start expired files worker
+	fileService := uploader.NewService(fileRepo, "")
+	uploader.StartExpiredFilesWorker(fileService, 1*time.Minute)
+
 	// Initialize handlers
 	userHandler := user.NewHandler(userRepo, authService)
 	authHandler := auth.NewHandler(userRepo, authService)
+	fileHandler := uploader.NewHandler(fileService)
 
 	server := &Server{
 		config:      config,
@@ -42,6 +51,7 @@ func NewServer(config *Config, db database.Service) (*Server, error) {
 		authService: authService,
 		authHandler: authHandler,
 		userHandler: userHandler,
+		fileHandler: fileHandler,
 	}
 
 	return server, nil
