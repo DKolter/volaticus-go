@@ -7,7 +7,9 @@ import (
 	"github.com/go-chi/jwtauth/v5"
 )
 
-// Redirects user to /login if not authenticated, to / if authenticated and trying to login
+// AuthMiddleware Redirects user to /login if not authenticated, to / if authenticated
+// Allows access to /login and /register without authentication
+// Denys access to all other routes without authentication
 func (s *Server) AuthMiddleware(ja *jwtauth.JWTAuth) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -22,16 +24,6 @@ func (s *Server) AuthMiddleware(ja *jwtauth.JWTAuth) func(http.Handler) http.Han
 				strings.HasSuffix(r.URL.Path, ".png") ||
 				strings.HasSuffix(r.URL.Path, ".jpg") ||
 				strings.HasSuffix(r.URL.Path, ".ico") {
-				next.ServeHTTP(w, r)
-				return
-			}
-
-			// Check if it's an API route TODO: check logic
-			if strings.HasPrefix(r.URL.Path, "/v1/") {
-				if err != nil || token == nil {
-					http.Error(w, http.StatusText(http.StatusUnauthorized), http.StatusUnauthorized)
-					return
-				}
 				next.ServeHTTP(w, r)
 				return
 			}

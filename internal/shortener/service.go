@@ -9,6 +9,7 @@ import (
 	"regexp"
 	"time"
 	"volaticus-go/internal/common/models"
+	"volaticus-go/internal/config"
 
 	"github.com/google/uuid"
 )
@@ -24,10 +25,10 @@ type Service struct {
 	geoIP   *GeoIPService
 }
 
-func NewService(repo Repository, baseURL string) *Service {
+func NewService(repo Repository, config *config.Config) *Service {
 	return &Service{
 		repo:    repo,
-		baseURL: baseURL,
+		baseURL: config.BaseURL,
 		geoIP:   GetGeoIPService(),
 	}
 }

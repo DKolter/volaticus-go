@@ -4,7 +4,7 @@ This package handles database migrations for the application. It uses `golang-mi
 
 ## Structure
 
-```bash
+```
 migrations/
 ├── 000001_create_users_table.up.sql    # Creates users table
 └── 000001_create_users_table.down.sql   # Rolls back users table creation

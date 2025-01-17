@@ -29,7 +29,7 @@ templ AnalyticsModal(analytics *models.URLAnalytics) {
 					<div class="flex gap-4 items-center">
 						<form
 							class="flex-1 flex gap-4 items-center"
-							hx-put={ fmt.Sprintf("/api/urls/%s/expiration", analytics.URL.ID) }
+							hx-put={ fmt.Sprintf("/url-shortener/urls/%s/expiration", analytics.URL.ID) }
 							hx-swap="none"
 							hx-on="htmx:afterRequest: if(event.detail.successful) {
                                 showToast('Expiration updated successfully');
@@ -67,7 +67,7 @@ templ AnalyticsModal(analytics *models.URLAnalytics) {
 						</form>
 						<button
 							type="button"
-							hx-put={ fmt.Sprintf("/api/urls/%s/expiration", analytics.URL.ID) }
+							hx-put={ fmt.Sprintf("/url-shortener/urls/%s/expiration", analytics.URL.ID) }
 							hx-swap="none"
 							hx-on="htmx:afterRequest: if(event.detail.successful) {
                                         showToast('Expiration removed successfully');

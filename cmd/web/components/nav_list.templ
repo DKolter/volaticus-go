@@ -1,17 +1,17 @@
 package components
 
 templ NavList() {
-    <nav class="flex flex-1 flex-col">
-        <ul role="list" class="flex flex-1 flex-col gap-y-3 px-2">
-            <li>
-                <ul role="list" class="space-y-2">
-                    @NavItem("/", HomeIcon(), "Home")
-                    @NavItem("/url-short", LinkIcon(), "URL Shortener")
-                    @NavItem("/upload", UploadIcon(), "Upload")
-                    @NavItem("/files", FolderIcon(), "My Files")
-                    @NavItem("/settings", SettingsIcon(), "Settings")
-                </ul>
-            </li>
-        </ul>
-    </nav>
+	<nav class="flex flex-1 flex-col">
+		<ul role="list" class="flex flex-1 flex-col gap-y-3 px-2">
+			<li>
+				<ul role="list" class="space-y-2">
+					@NavItem("/", HomeIcon(), "Home")
+					@NavItem("/url-shortener", LinkIcon(), "URL Shortener")
+					@NavItem("/upload", UploadIcon(), "Upload")
+					@NavItem("/files", FolderIcon(), "My Files")
+					@NavItem("/settings", SettingsIcon(), "Settings")
+				</ul>
+			</li>
+		</ul>
+	</nav>
 }

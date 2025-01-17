@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"time"
 	"volaticus-go/internal/config"
+	"volaticus-go/internal/shortener"
 
 	_ "github.com/joho/godotenv/autoload"
 
@@ -18,23 +19,22 @@ import (
 
 // Server represents the HTTP server and its dependencies
 type Server struct {
-	config      *config.Config
-	db          database.Service
-	authService *auth.Service
-	authHandler *auth.Handler
-	userHandler *user.Handler
-	fileHandler *uploader.Handler
+	config           *config.Config
+	db               database.Service
+	authService      *auth.Service
+	authHandler      *auth.Handler
+	userHandler      *user.Handler
+	fileHandler      *uploader.Handler
+	shortenerHandler *shortener.Handler
 }
 
 // NewServer creates a new server instance
 func NewServer(config *config.Config, db database.Service) (*Server, error) {
-	// FIXME: Does this hold too many dependencies?
 	// Initialize repositories
 	userRepo := user.NewPostgresUserRepository(db.DB())
 	tokenRepo := auth.NewPostgresTokenRepository(db.DB())
-
-	// Initialize file repository
 	fileRepo := uploader.NewPostgresRepository(db.DB())
+	shortenerRepo := shortener.NewPostgresRepository(db.DB())
 
 	// Initialize auth service
 	authService := auth.NewService(config.Secret, tokenRepo)
@@ -43,18 +43,23 @@ func NewServer(config *config.Config, db database.Service) (*Server, error) {
 	fileService := uploader.NewService(fileRepo, config)
 	uploader.StartExpiredFilesWorker(fileService, 1*time.Minute)
 
+	// Initialize shortened URL service
+	shortenerService := shortener.NewService(shortenerRepo, config)
+
 	// Initialize handlers
 	userHandler := user.NewHandler(userRepo, authService)
 	authHandler := auth.NewHandler(userRepo, authService)
 	fileHandler := uploader.NewHandler(fileService)
+	shortenerHandler := shortener.NewHandler(shortenerService)
 
 	server := &Server{
-		config:      config,
-		db:          db,
-		authService: authService,
-		authHandler: authHandler,
-		userHandler: userHandler,
-		fileHandler: fileHandler,
+		config:           config,
+		db:               db,
+		authService:      authService,
+		authHandler:      authHandler,
+		userHandler:      userHandler,
+		fileHandler:      fileHandler,
+		shortenerHandler: shortenerHandler,
 	}
 
 	return server, nil
