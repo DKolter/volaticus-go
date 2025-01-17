@@ -4,10 +4,26 @@ import (
 	"database/sql"
 	"errors"
 	"time"
+	"volaticus-go/internal/common/models"
 
 	"github.com/google/uuid"
 	"github.com/jmoiron/sqlx"
 )
+
+// Repository defines methods for URL persistence
+type Repository interface {
+	Create(url *models.ShortenedURL) error
+	GetByShortCode(code string) (*models.ShortenedURL, error)
+	GetByUserID(userID uuid.UUID) ([]*models.ShortenedURL, error)
+	IncrementAccessCount(id uuid.UUID) error
+	Delete(id uuid.UUID) error
+	Update(url *models.ShortenedURL) error
+
+	// Analytics methods
+	RecordClick(analytics *models.ClickAnalytics) error
+	GetURLAnalytics(urlID uuid.UUID) (*models.URLAnalytics, error)
+	GetURLsByExpiration(before time.Time) ([]*models.ShortenedURL, error)
+}
 
 type postgresRepository struct {
 	db *sqlx.DB
@@ -18,7 +34,7 @@ func NewPostgresRepository(db *sqlx.DB) Repository {
 }
 
 // Create stores a new shortened URL
-func (r *postgresRepository) Create(url *ShortenedURL) error {
+func (r *postgresRepository) Create(url *models.ShortenedURL) error {
 	query := `
         INSERT INTO shortened_urls (
             id, user_id, original_url, short_code, created_at, 
@@ -40,8 +56,8 @@ func (r *postgresRepository) Create(url *ShortenedURL) error {
 }
 
 // GetByShortCode retrieves a URL by its short code
-func (r *postgresRepository) GetByShortCode(code string) (*ShortenedURL, error) {
-	url := new(ShortenedURL)
+func (r *postgresRepository) GetByShortCode(code string) (*models.ShortenedURL, error) {
+	url := new(models.ShortenedURL)
 	err := r.db.Get(url, `
         SELECT * FROM shortened_urls 
         WHERE short_code = $1 
@@ -56,8 +72,8 @@ func (r *postgresRepository) GetByShortCode(code string) (*ShortenedURL, error) 
 }
 
 // GetByUserID retrieves all URLs created by a specific user
-func (r *postgresRepository) GetByUserID(userID uuid.UUID) ([]*ShortenedURL, error) {
-	var urls []*ShortenedURL
+func (r *postgresRepository) GetByUserID(userID uuid.UUID) ([]*models.ShortenedURL, error) {
+	var urls []*models.ShortenedURL
 	err := r.db.Select(&urls, `
         SELECT * FROM shortened_urls 
         WHERE user_id = $1 
@@ -103,7 +119,7 @@ func (r *postgresRepository) Delete(id uuid.UUID) error {
 }
 
 // Update updates a URL's properties
-func (r *postgresRepository) Update(url *ShortenedURL) error {
+func (r *postgresRepository) Update(url *models.ShortenedURL) error {
 	_, err := r.db.Exec(`
         UPDATE shortened_urls 
         SET expires_at = $1,
@@ -118,7 +134,7 @@ func (r *postgresRepository) Update(url *ShortenedURL) error {
 }
 
 // RecordClick stores analytics data for a click event
-func (r *postgresRepository) RecordClick(analytics *ClickAnalytics) error {
+func (r *postgresRepository) RecordClick(analytics *models.ClickAnalytics) error {
 	_, err := r.db.Exec(`
         INSERT INTO click_analytics (
             id, url_id, clicked_at, referrer, 
@@ -139,11 +155,11 @@ func (r *postgresRepository) RecordClick(analytics *ClickAnalytics) error {
 }
 
 // GetURLAnalytics retrieves analytics data for a specific URL
-func (r *postgresRepository) GetURLAnalytics(urlID uuid.UUID) (*URLAnalytics, error) {
-	analytics := &URLAnalytics{}
+func (r *postgresRepository) GetURLAnalytics(urlID uuid.UUID) (*models.URLAnalytics, error) {
+	analytics := &models.URLAnalytics{}
 
 	// Get the URL details
-	url := new(ShortenedURL)
+	url := new(models.ShortenedURL)
 	err := r.db.Get(url, "SELECT * FROM shortened_urls WHERE id = $1", urlID)
 	if err != nil {
 		return nil, err
@@ -220,8 +236,8 @@ func (r *postgresRepository) GetURLAnalytics(urlID uuid.UUID) (*URLAnalytics, er
 }
 
 // GetURLsByExpiration retrieves all URLs that expire before a given time
-func (r *postgresRepository) GetURLsByExpiration(before time.Time) ([]*ShortenedURL, error) {
-	var urls []*ShortenedURL
+func (r *postgresRepository) GetURLsByExpiration(before time.Time) ([]*models.ShortenedURL, error) {
+	var urls []*models.ShortenedURL
 	err := r.db.Select(&urls, `
         SELECT * FROM shortened_urls 
         WHERE expires_at IS NOT NULL 

@@ -2,15 +2,13 @@ package server
 
 import (
 	"fmt"
-	"net/http"
-	"volaticus-go/cmd/web"
-	"volaticus-go/cmd/web/handlers"
-	"volaticus-go/internal/shortener"
-
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
 	"github.com/go-chi/cors"
 	"github.com/go-chi/jwtauth/v5"
+	"net/http"
+	"volaticus-go/cmd/web"
+	"volaticus-go/internal/shortener"
 )
 
 func (s *Server) RegisterRoutes() http.Handler {
@@ -84,7 +82,7 @@ func (s *Server) RegisterRoutes() http.Handler {
 		shortener.NewPostgresRepository(s.db.DB()),
 		fmt.Sprintf("%s:%d", s.config.BaseURL, s.config.Port), // Use config BaseURL
 	)
-	shortenerHandler := handlers.NewHandler(shortenerService)
+	shortenerHandler := shortener.NewHandler(shortenerService)
 
 	// Frontend routes
 	r.Route("/url-short", func(r chi.Router) {

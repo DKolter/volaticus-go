@@ -5,10 +5,22 @@ import (
 	"errors"
 	"fmt"
 	"time"
+	"volaticus-go/internal/common/models"
 
 	"github.com/google/uuid"
 	"github.com/jmoiron/sqlx"
 )
+
+type TokenRepository interface {
+	CreateToken(token *models.APIToken) error
+	GetAPITokenByToken(token string) (*models.APIToken, error)
+	GetAPITokenByID(id uuid.UUID) (*models.APIToken, error)
+	ListUserTokens(userID uuid.UUID) ([]*models.APIToken, error)
+	TokenExists(token string) (bool, error)
+	RevokeToken(id uuid.UUID) error
+	UpdateLastUsed(id uuid.UUID) error
+	DeleteTokenByUserIdAndToken(userID uuid.UUID, token string) error
+}
 
 type postgresTokenRepository struct {
 	db *sqlx.DB
@@ -18,7 +30,7 @@ func NewPostgresTokenRepository(db *sqlx.DB) TokenRepository {
 	return &postgresTokenRepository{db: db}
 }
 
-func (r *postgresTokenRepository) CreateToken(token *APIToken) error {
+func (r *postgresTokenRepository) CreateToken(token *models.APIToken) error {
 	query := `
         INSERT INTO api_tokens (id, user_id, name, token, created_at, is_active)
         VALUES ($1, $2, $3, $4, $5, $6)
@@ -35,8 +47,8 @@ func (r *postgresTokenRepository) CreateToken(token *APIToken) error {
 	).Scan(&token.ID)
 }
 
-func (r *postgresTokenRepository) GetAPITokenByToken(token string) (*APIToken, error) {
-	var t APIToken
+func (r *postgresTokenRepository) GetAPITokenByToken(token string) (*models.APIToken, error) {
+	var t models.APIToken
 	err := r.db.Get(&t, "SELECT * FROM api_tokens WHERE token = $1", token)
 	if err == sql.ErrNoRows {
 		return nil, errors.New("token not found")
@@ -44,8 +56,8 @@ func (r *postgresTokenRepository) GetAPITokenByToken(token string) (*APIToken, e
 	return &t, err
 }
 
-func (r *postgresTokenRepository) GetAPITokenByID(id uuid.UUID) (*APIToken, error) {
-	var t APIToken
+func (r *postgresTokenRepository) GetAPITokenByID(id uuid.UUID) (*models.APIToken, error) {
+	var t models.APIToken
 	err := r.db.Get(&t, "SELECT * FROM api_tokens WHERE id = $1", id)
 	if err == sql.ErrNoRows {
 		return nil, errors.New("token not found")
@@ -53,8 +65,8 @@ func (r *postgresTokenRepository) GetAPITokenByID(id uuid.UUID) (*APIToken, erro
 	return &t, err
 }
 
-func (r *postgresTokenRepository) ListUserTokens(userID uuid.UUID) ([]*APIToken, error) {
-	var tokens []*APIToken
+func (r *postgresTokenRepository) ListUserTokens(userID uuid.UUID) ([]*models.APIToken, error) {
+	var tokens []*models.APIToken
 	err := r.db.Select(&tokens, "SELECT * FROM api_tokens WHERE user_id = $1", userID)
 	return tokens, err
 }

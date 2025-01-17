@@ -1,11 +1,12 @@
 package pages
 
-import "volaticus-go/cmd/web/components"
-import "volaticus-go/internal/auth"
+import (
+	"volaticus-go/cmd/web/components"
+	"volaticus-go/internal/common/models"
+	userctx "volaticus-go/internal/context"
+)
 
-import userctx "volaticus-go/internal/context"
-
-templ SettingsPage(tokens []*auth.APIToken) {
+templ SettingsPage(tokens []*models.APIToken) {
 	@DashboardLayout() {
 		<div class="px-4 py-6 sm:px-0">
 			<h1 class="text-2xl font-semibold text-white">Settings</h1>
@@ -39,7 +40,7 @@ templ SettingsPage(tokens []*auth.APIToken) {
 						<!-- Modal Container -->
 						<div id="modal-content"></div>
 						<!-- Tokens Table -->
-                        @components.TokenTable(tokens)
+						@components.TokenTable(tokens)
 					</div>
 				}
 			</div>

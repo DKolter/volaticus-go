@@ -2,6 +2,7 @@ package auth
 
 import (
 	"encoding/json"
+	"github.com/google/uuid"
 	"log"
 	"net/http"
 	"os"
@@ -15,6 +16,17 @@ import (
 type Handler struct {
 	userRepo    user.UserRepository
 	authService *Service
+}
+
+type CreateTokenRequest struct {
+	Name   string    `json:"name" validate:"required"`
+	UserID uuid.UUID `json:"userid" validate:"required"`
+}
+
+type TokenResponse struct {
+	Token string    `json:"token"`
+	Name  string    `json:"name"`
+	ID    uuid.UUID `json:"id"`
 }
 
 func NewHandler(userRepo user.UserRepository, authService *Service) *Handler {

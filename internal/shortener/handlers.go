@@ -1,25 +1,24 @@
-package handlers
+package shortener
 
 import (
 	"encoding/json"
+	"github.com/go-chi/chi/v5"
+	"github.com/google/uuid"
 	"log"
 	"net/http"
 	"strings"
 	"time"
 	"volaticus-go/cmd/web/components"
 	"volaticus-go/cmd/web/pages"
-	"volaticus-go/internal/shortener"
-
-	"github.com/go-chi/chi/v5"
-	"github.com/google/uuid"
+	"volaticus-go/internal/common/models"
 	"volaticus-go/internal/context"
 )
 
 type Handler struct {
-	service *shortener.Service
+	service *Service
 }
 
-func NewHandler(service *shortener.Service) *Handler {
+func NewHandler(service *Service) *Handler {
 	return &Handler{
 		service: service,
 	}
@@ -27,10 +26,10 @@ func NewHandler(service *shortener.Service) *Handler {
 
 // HandleCreateShortURL handles the creation of shortened URLs via API
 func (h *Handler) HandleCreateShortURL(w http.ResponseWriter, r *http.Request) {
-	var req shortener.CreateURLRequest
+	var req models.CreateURLRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		shortener.HandleError(w, &shortener.APIError{
-			Code:    shortener.ErrCodeInvalidInput,
+		HandleError(w, &APIError{
+			Code:    ErrCodeInvalidInput,
 			Message: "Invalid request body",
 		}, http.StatusBadRequest)
 		return
@@ -38,18 +37,18 @@ func (h *Handler) HandleCreateShortURL(w http.ResponseWriter, r *http.Request) {
 
 	user := context.GetUserFromContext(r.Context())
 	if user == nil {
-		shortener.HandleError(w, shortener.ErrUnauthorized, http.StatusUnauthorized)
+		HandleError(w, ErrUnauthorized, http.StatusUnauthorized)
 		return
 	}
 
 	response, err := h.service.CreateShortURL(user.ID, &req)
 	if err != nil {
 		if strings.Contains(err.Error(), "vanity code") {
-			shortener.HandleError(w, shortener.ErrVanityCodeTaken, http.StatusConflict)
+			HandleError(w, ErrVanityCodeTaken, http.StatusConflict)
 			return
 		}
 		log.Printf("Error creating short URL: %v", err)
-		shortener.HandleError(w, shortener.LogError(err, "creating short URL"), http.StatusInternalServerError)
+		HandleError(w, LogError(err, "creating short URL"), http.StatusInternalServerError)
 		return
 	}
 
@@ -64,15 +63,15 @@ func (h *Handler) HandleCreateShortURL(w http.ResponseWriter, r *http.Request) {
 func (h *Handler) HandleRedirect(w http.ResponseWriter, r *http.Request) {
 	shortCode := chi.URLParam(r, "shortCode")
 	if shortCode == "" {
-		shortener.HandleError(w, &shortener.APIError{
-			Code:    shortener.ErrCodeInvalidInput,
+		HandleError(w, &APIError{
+			Code:    ErrCodeInvalidInput,
 			Message: "Short code is required",
 		}, http.StatusBadRequest)
 		return
 	}
 
 	// Gather request information for analytics
-	reqInfo := &shortener.RequestInfo{
+	reqInfo := &models.RequestInfo{
 		Referrer:  r.Referer(),
 		UserAgent: r.UserAgent(),
 		IPAddress: getIPAddress(r),
@@ -81,11 +80,11 @@ func (h *Handler) HandleRedirect(w http.ResponseWriter, r *http.Request) {
 	originalURL, err := h.service.GetOriginalURL(shortCode, reqInfo)
 	if err != nil {
 		if strings.Contains(err.Error(), "expired") {
-			shortener.HandleError(w, shortener.ErrURLExpired, http.StatusGone)
+			HandleError(w, ErrURLExpired, http.StatusGone)
 			return
 		}
 		log.Printf("Error retrieving original URL: %v", err)
-		shortener.HandleError(w, shortener.ErrURLNotFound, http.StatusNotFound)
+		HandleError(w, ErrURLNotFound, http.StatusNotFound)
 		return
 	}
 
@@ -95,21 +94,21 @@ func (h *Handler) HandleRedirect(w http.ResponseWriter, r *http.Request) {
 func (h *Handler) HandleGetUserURLs(w http.ResponseWriter, r *http.Request) {
 	user := context.GetUserFromContext(r.Context())
 	if user == nil {
-		shortener.HandleError(w, shortener.ErrUnauthorized, http.StatusUnauthorized)
+		HandleError(w, ErrUnauthorized, http.StatusUnauthorized)
 		return
 	}
 
 	urls, err := h.service.GetUserURLs(user.ID)
 	if err != nil {
 		log.Printf("Error retrieving user URLs: %v", err)
-		shortener.HandleError(w, shortener.LogError(err, "retrieving user URLs"), http.StatusInternalServerError)
+		HandleError(w, LogError(err, "retrieving user URLs"), http.StatusInternalServerError)
 		return
 	}
 
 	// Render the template using the pages package
 	if err := pages.URLList(urls).Render(r.Context(), w); err != nil {
 		log.Printf("Error rendering URL list: %v", err)
-		shortener.HandleError(w, shortener.LogError(err, "rendering URL list"), http.StatusInternalServerError)
+		HandleError(w, LogError(err, "rendering URL list"), http.StatusInternalServerError)
 	}
 }
 
@@ -117,8 +116,8 @@ func (h *Handler) HandleGetUserURLs(w http.ResponseWriter, r *http.Request) {
 func (h *Handler) HandleGetURLAnalytics(w http.ResponseWriter, r *http.Request) {
 	urlID, err := uuid.Parse(chi.URLParam(r, "urlID"))
 	if err != nil {
-		shortener.HandleError(w, &shortener.APIError{
-			Code:    shortener.ErrCodeInvalidInput,
+		HandleError(w, &APIError{
+			Code:    ErrCodeInvalidInput,
 			Message: "Invalid URL ID",
 		}, http.StatusBadRequest)
 		return
@@ -126,18 +125,18 @@ func (h *Handler) HandleGetURLAnalytics(w http.ResponseWriter, r *http.Request) 
 
 	user := context.GetUserFromContext(r.Context())
 	if user == nil {
-		shortener.HandleError(w, shortener.ErrUnauthorized, http.StatusUnauthorized)
+		HandleError(w, ErrUnauthorized, http.StatusUnauthorized)
 		return
 	}
 
 	analytics, err := h.service.GetURLAnalytics(urlID, user.ID)
 	if err != nil {
 		if strings.Contains(err.Error(), "unauthorized") {
-			shortener.HandleError(w, shortener.ErrUnauthorized, http.StatusForbidden)
+			HandleError(w, ErrUnauthorized, http.StatusForbidden)
 			return
 		}
 		log.Printf("Error retrieving URL analytics: %v", err)
-		shortener.HandleError(w, shortener.LogError(err, "retrieving analytics"), http.StatusInternalServerError)
+		HandleError(w, LogError(err, "retrieving analytics"), http.StatusInternalServerError)
 		return
 	}
 
@@ -146,7 +145,7 @@ func (h *Handler) HandleGetURLAnalytics(w http.ResponseWriter, r *http.Request) 
 		w.Header().Set("Content-Type", "text/html")
 		if err := components.AnalyticsModal(analytics).Render(r.Context(), w); err != nil {
 			log.Printf("Error rendering analytics modal: %v", err)
-			shortener.HandleError(w, shortener.LogError(err, "rendering analytics modal"), http.StatusInternalServerError)
+			HandleError(w, LogError(err, "rendering analytics modal"), http.StatusInternalServerError)
 		}
 		return
 	}
@@ -162,8 +161,8 @@ func (h *Handler) HandleGetURLAnalytics(w http.ResponseWriter, r *http.Request) 
 func (h *Handler) HandleDeleteURL(w http.ResponseWriter, r *http.Request) {
 	urlID := chi.URLParam(r, "urlID")
 	if urlID == "" {
-		shortener.HandleError(w, &shortener.APIError{
-			Code:    shortener.ErrCodeInvalidInput,
+		HandleError(w, &APIError{
+			Code:    ErrCodeInvalidInput,
 			Message: "URL ID is required",
 		}, http.StatusBadRequest)
 		return
@@ -171,7 +170,7 @@ func (h *Handler) HandleDeleteURL(w http.ResponseWriter, r *http.Request) {
 
 	user := context.GetUserFromContext(r.Context())
 	if user == nil {
-		shortener.HandleError(w, shortener.ErrUnauthorized, http.StatusUnauthorized)
+		HandleError(w, ErrUnauthorized, http.StatusUnauthorized)
 		return
 	}
 
@@ -180,22 +179,22 @@ func (h *Handler) HandleDeleteURL(w http.ResponseWriter, r *http.Request) {
 		// Handle non-UUID short codes
 		if err := h.service.DeleteURLByShortCode(urlID, user.ID); err != nil {
 			if strings.Contains(err.Error(), "unauthorized") {
-				shortener.HandleError(w, shortener.ErrUnauthorized, http.StatusForbidden)
+				HandleError(w, ErrUnauthorized, http.StatusForbidden)
 				return
 			}
 			log.Printf("Error deleting short code: %v", err)
-			shortener.HandleError(w, shortener.LogError(err, "deleting short code"), http.StatusInternalServerError)
+			HandleError(w, LogError(err, "deleting short code"), http.StatusInternalServerError)
 			return
 		}
 	} else {
 		// Handle UUIDs
 		if err := h.service.DeleteURL(uuid.MustParse(urlID), user.ID); err != nil {
 			if strings.Contains(err.Error(), "unauthorized") {
-				shortener.HandleError(w, shortener.ErrUnauthorized, http.StatusForbidden)
+				HandleError(w, ErrUnauthorized, http.StatusForbidden)
 				return
 			}
 			log.Printf("Error deleting URL: %v", err)
-			shortener.HandleError(w, shortener.LogError(err, "deleting URL"), http.StatusInternalServerError)
+			HandleError(w, LogError(err, "deleting URL"), http.StatusInternalServerError)
 			return
 		}
 	}
@@ -207,8 +206,8 @@ func (h *Handler) HandleDeleteURL(w http.ResponseWriter, r *http.Request) {
 // HandleUpdateExpiration handles updating the URL expiration
 func (h *Handler) HandleUpdateExpiration(w http.ResponseWriter, r *http.Request) {
 	if err := r.ParseForm(); err != nil {
-		shortener.HandleError(w, &shortener.APIError{
-			Code:    shortener.ErrCodeInvalidInput,
+		HandleError(w, &APIError{
+			Code:    ErrCodeInvalidInput,
 			Message: "Error parsing form",
 		}, http.StatusBadRequest)
 		return
@@ -216,8 +215,8 @@ func (h *Handler) HandleUpdateExpiration(w http.ResponseWriter, r *http.Request)
 
 	urlID, err := uuid.Parse(chi.URLParam(r, "urlID"))
 	if err != nil {
-		shortener.HandleError(w, &shortener.APIError{
-			Code:    shortener.ErrCodeInvalidInput,
+		HandleError(w, &APIError{
+			Code:    ErrCodeInvalidInput,
 			Message: "Invalid URL ID",
 		}, http.StatusBadRequest)
 		return
@@ -225,7 +224,7 @@ func (h *Handler) HandleUpdateExpiration(w http.ResponseWriter, r *http.Request)
 
 	user := context.GetUserFromContext(r.Context())
 	if user == nil {
-		shortener.HandleError(w, shortener.ErrUnauthorized, http.StatusUnauthorized)
+		HandleError(w, ErrUnauthorized, http.StatusUnauthorized)
 		return
 	}
 
@@ -234,8 +233,8 @@ func (h *Handler) HandleUpdateExpiration(w http.ResponseWriter, r *http.Request)
 		// Parse the local time string
 		expTime, err := time.ParseInLocation("2006-01-02T15:04", expStr, time.Local)
 		if err != nil {
-			shortener.HandleError(w, &shortener.APIError{
-				Code:    shortener.ErrCodeInvalidInput,
+			HandleError(w, &APIError{
+				Code:    ErrCodeInvalidInput,
 				Message: "Invalid expiration date format",
 			}, http.StatusBadRequest)
 			return
@@ -245,11 +244,11 @@ func (h *Handler) HandleUpdateExpiration(w http.ResponseWriter, r *http.Request)
 
 	if err := h.service.UpdateURLExpiration(urlID, user.ID, expiresAt); err != nil {
 		if strings.Contains(err.Error(), "unauthorized") {
-			shortener.HandleError(w, shortener.ErrUnauthorized, http.StatusForbidden)
+			HandleError(w, ErrUnauthorized, http.StatusForbidden)
 			return
 		}
 		log.Printf("Error updating URL expiration: %v", err)
-		shortener.HandleError(w, shortener.LogError(err, "updating expiration"), http.StatusInternalServerError)
+		HandleError(w, LogError(err, "updating expiration"), http.StatusInternalServerError)
 		return
 	}
 
@@ -260,8 +259,8 @@ func (h *Handler) HandleUpdateExpiration(w http.ResponseWriter, r *http.Request)
 // HandleShortenForm handles the URL shortening form submission with HTML response
 func (h *Handler) HandleShortenForm(w http.ResponseWriter, r *http.Request) {
 	if err := r.ParseForm(); err != nil {
-		shortener.HandleError(w, &shortener.APIError{
-			Code:    shortener.ErrCodeInvalidInput,
+		HandleError(w, &APIError{
+			Code:    ErrCodeInvalidInput,
 			Message: "Error parsing form",
 		}, http.StatusBadRequest)
 		return
@@ -269,11 +268,11 @@ func (h *Handler) HandleShortenForm(w http.ResponseWriter, r *http.Request) {
 
 	user := context.GetUserFromContext(r.Context())
 	if user == nil {
-		shortener.HandleError(w, shortener.ErrUnauthorized, http.StatusUnauthorized)
+		HandleError(w, ErrUnauthorized, http.StatusUnauthorized)
 		return
 	}
 
-	req := shortener.CreateURLRequest{
+	req := models.CreateURLRequest{
 		URL:        r.FormValue("url"),
 		VanityCode: r.FormValue("vanity_code"),
 	}
@@ -281,8 +280,8 @@ func (h *Handler) HandleShortenForm(w http.ResponseWriter, r *http.Request) {
 	if expStr := r.FormValue("expires_at"); expStr != "" {
 		expTime, err := time.ParseInLocation("2006-01-02T15:04", expStr, time.Local)
 		if err != nil {
-			shortener.HandleError(w, &shortener.APIError{
-				Code:    shortener.ErrCodeInvalidInput,
+			HandleError(w, &APIError{
+				Code:    ErrCodeInvalidInput,
 				Message: "Invalid expiration date format",
 				Details: err.Error(),
 			}, http.StatusBadRequest)
@@ -313,7 +312,7 @@ func (h *Handler) HandleShortenForm(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		shortener.HandleError(w, shortener.LogError(err, "creating short URL"), http.StatusInternalServerError)
+		HandleError(w, LogError(err, "creating short URL"), http.StatusInternalServerError)
 		return
 	}
 

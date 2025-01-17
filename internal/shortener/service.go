@@ -8,6 +8,7 @@ import (
 	"net/url"
 	"regexp"
 	"time"
+	"volaticus-go/internal/common/models"
 
 	"github.com/google/uuid"
 )
@@ -32,7 +33,7 @@ func NewService(repo Repository, baseURL string) *Service {
 }
 
 // CreateShortURL creates a new shortened URL with optional vanity code and expiration
-func (s *Service) CreateShortURL(userID uuid.UUID, req *CreateURLRequest) (*CreateURLResponse, error) {
+func (s *Service) CreateShortURL(userID uuid.UUID, req *models.CreateURLRequest) (*models.CreateURLResponse, error) {
 	// Validate URL
 	if _, err := url.ParseRequestURI(req.URL); err != nil {
 		return nil, fmt.Errorf("invalid URL format: %w", err)
@@ -58,7 +59,7 @@ func (s *Service) CreateShortURL(userID uuid.UUID, req *CreateURLRequest) (*Crea
 	}
 
 	// Create ShortenedURL object
-	shortenedURL := &ShortenedURL{
+	shortenedURL := &models.ShortenedURL{
 		ID:          uuid.New(),
 		UserID:      userID,
 		OriginalURL: req.URL,
@@ -74,7 +75,7 @@ func (s *Service) CreateShortURL(userID uuid.UUID, req *CreateURLRequest) (*Crea
 		return nil, fmt.Errorf("creating shortened URL: %w", err)
 	}
 
-	return &CreateURLResponse{
+	return &models.CreateURLResponse{
 		ShortURL:    s.baseURL + "/s/" + shortCode,
 		OriginalURL: req.URL,
 		ShortCode:   shortCode,
@@ -84,7 +85,7 @@ func (s *Service) CreateShortURL(userID uuid.UUID, req *CreateURLRequest) (*Crea
 }
 
 // GetOriginalURL retrieves the original URL and records analytics
-func (s *Service) GetOriginalURL(shortCode string, r *RequestInfo) (string, error) {
+func (s *Service) GetOriginalURL(shortCode string, r *models.RequestInfo) (string, error) {
 	// Retrieve URL from database
 	shortenedURL, err := s.repo.GetByShortCode(shortCode)
 	if err != nil {
@@ -101,7 +102,7 @@ func (s *Service) GetOriginalURL(shortCode string, r *RequestInfo) (string, erro
 
 	// Record analytics asynchronously
 	go func() {
-		analytics := &ClickAnalytics{
+		analytics := &models.ClickAnalytics{
 			ID:          uuid.New(),
 			URLID:       shortenedURL.ID,
 			ClickedAt:   time.Now(),
@@ -127,12 +128,12 @@ func (s *Service) GetOriginalURL(shortCode string, r *RequestInfo) (string, erro
 }
 
 // GetUserURLs retrieves all URLs created by a specific user
-func (s *Service) GetUserURLs(userID uuid.UUID) ([]*ShortenedURL, error) {
+func (s *Service) GetUserURLs(userID uuid.UUID) ([]*models.ShortenedURL, error) {
 	return s.repo.GetByUserID(userID)
 }
 
 // GetURLAnalytics retrieves analytics for a specific URL
-func (s *Service) GetURLAnalytics(urlID uuid.UUID, userID uuid.UUID) (*URLAnalytics, error) {
+func (s *Service) GetURLAnalytics(urlID uuid.UUID, userID uuid.UUID) (*models.URLAnalytics, error) {
 	// First verify the user owns this URL
 	urls, err := s.repo.GetByUserID(userID)
 	if err != nil {
@@ -206,7 +207,7 @@ func (s *Service) UpdateURLExpiration(urlID uuid.UUID, userID uuid.UUID, expires
 		return err
 	}
 
-	var targetURL *ShortenedURL
+	var targetURL *models.ShortenedURL
 	for _, url := range urls {
 		if url.ID == urlID {
 			targetURL = url

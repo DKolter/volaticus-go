@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"time"
-	"volaticus-go/internal/shortener"
+	"volaticus-go/internal/common/models"
 )
 
 // Main URL Shortener page
@@ -130,7 +130,7 @@ templ UrlShortPage() {
 }
 
 // URL List Component
-templ URLList(urls []*shortener.ShortenedURL) {
+templ URLList(urls []*models.ShortenedURL) {
 	if len(urls) == 0 {
 		<div class="bg-gray-800 rounded-lg p-6 text-gray-400 text-center">
 			<p>No URLs created yet.</p>
@@ -250,17 +250,17 @@ templ URLList(urls []*shortener.ShortenedURL) {
 }
 
 // Shortened URL Result Component
-templ ShortenedURLResult(response *shortener.CreateURLResponse) {
+templ ShortenedURLResult(response *models.CreateURLResponse) {
 	<div class="mt-4 p-4 bg-gray-800 rounded-lg border border-gray-700">
 		<p class="text-gray-300">Your shortened URL:</p>
 		<div class="mt-2 flex items-center gap-2">
-		<label>
-			<input
-				type="text"
-				readonly
-				value={ response.ShortURL }
-				class="flex-1 rounded-md border-0 bg-white/5 py-1.5 text-white shadow-sm ring-1 ring-inset ring-white/10"
-			/>
+			<label>
+				<input
+					type="text"
+					readonly
+					value={ response.ShortURL }
+					class="flex-1 rounded-md border-0 bg-white/5 py-1.5 text-white shadow-sm ring-1 ring-inset ring-white/10"
+				/>
 			</label>
 			<button
 				onclick="navigator.clipboard.writeText('{response.ShortURL}')"
@@ -293,7 +293,7 @@ script copyToClipboard(shortCode string) {
     });
 }
 
-func formatClicksDataToJSON(data []shortener.ClicksByDay) string {
+func formatClicksDataToJSON(data []models.ClicksByDay) string {
 	jsonData, err := json.Marshal(data)
 	if err != nil {
 		return "[]"

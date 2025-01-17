@@ -5,19 +5,20 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
-	"volaticus-go/internal/models"
-
 	"github.com/google/uuid"
 	"github.com/jmoiron/sqlx"
+	"volaticus-go/internal/common/models"
 )
 
-var (
-	ErrDuplicateURLValue = fmt.Errorf("duplicate URL value")
-	ErrNoRows            = fmt.Errorf("no rows found")
-	ErrTransaction       = fmt.Errorf("transaction error")
-	ErrCommit            = fmt.Errorf("commit transaction error")
-	ErrRollback          = fmt.Errorf("rollback transaction error")
-)
+type Repository interface {
+	CreateWithURL(file *models.UploadedFile, urlValue string) error
+	GetAllFiles() ([]*models.UploadedFile, error)
+	GetByUniqueFilename(code string) (*models.UploadedFile, error)
+	GetByURLValue(urlValue string) (*models.UploadedFile, error)
+	IncrementAccessCount(id uuid.UUID) error
+	GetExpiredFiles() ([]*models.UploadedFile, error)
+	Delete(id uuid.UUID) error
+}
 
 type postgresRepository struct {
 	db *sqlx.DB

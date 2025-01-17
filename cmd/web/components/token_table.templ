@@ -3,10 +3,10 @@ package components
 import (
 	"fmt"
 	"time"
-	"volaticus-go/internal/auth"
+	"volaticus-go/internal/common/models"
 )
 
-templ TokenTable(tokens []*auth.APIToken) {
+templ TokenTable(tokens []*models.APIToken) {
 	<div class="border border-gray-700 rounded-lg overflow-hidden">
 		<table class="min-w-full divide-y divide-gray-700">
 			<thead class="bg-gray-700">
@@ -31,8 +31,9 @@ templ TokenTable(tokens []*auth.APIToken) {
 									class="bg-gray-700 px-2 py-1 rounded font-mono text-gray-300 flex-1"
 								/>
 								<button
-								onclick={ copyToClipboard(token.Token) }
-								class="text-gray-400 hover:text-gray-200">
+									onclick={ copyToClipboard(token.Token) }
+									class="text-gray-400 hover:text-gray-200"
+								>
 									@ClipboardIcon()
 								</button>
 							</div>
@@ -64,7 +65,6 @@ script copyToClipboard(text string) {
 		console.log('Token copied to clipboard');
 	});
 }
-
 
 templ formatDateTime(t *time.Time) {
 	if t == nil {

@@ -3,10 +3,10 @@ package components
 import (
 	"fmt"
 	"time"
-	"volaticus-go/internal/shortener"
+	"volaticus-go/internal/common/models"
 )
 
-templ AnalyticsModal(analytics *shortener.URLAnalytics) {
+templ AnalyticsModal(analytics *models.URLAnalytics) {
 	<div class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
 		<div class="bg-gray-800 rounded-lg p-6 w-full max-w-4xl">
 			<div class="flex justify-between items-center mb-6">
@@ -36,17 +36,17 @@ templ AnalyticsModal(analytics *shortener.URLAnalytics) {
                                 htmx.trigger('#my-urls', 'urlsChanged');
                             }"
 						>
-						    <label>
-							<input
-								type="datetime-local"
-								name="expires_at"
-								class="w-full rounded-md border-0 bg-gray-600 px-3 py-1.5 text-white shadow-sm ring-1 ring-inset ring-gray-500 focus:ring-2 focus:ring-inset focus:ring-indigo-500 sm:text-sm"
-								if analytics.URL.ExpiresAt != nil {
-									value={ analytics.URL.ExpiresAt.Format("2006-01-02T15:04") }
-								}
-								min={ time.Now().Format("2006-01-02T15:04") }
-								step="60"
-							/>
+							<label>
+								<input
+									type="datetime-local"
+									name="expires_at"
+									class="w-full rounded-md border-0 bg-gray-600 px-3 py-1.5 text-white shadow-sm ring-1 ring-inset ring-gray-500 focus:ring-2 focus:ring-inset focus:ring-indigo-500 sm:text-sm"
+									if analytics.URL.ExpiresAt != nil {
+										value={ analytics.URL.ExpiresAt.Format("2006-01-02T15:04") }
+									}
+									min={ time.Now().Format("2006-01-02T15:04") }
+									step="60"
+								/>
 							</label>
 							<script>
                                 document.querySelector('.modal input[name="expires_at"]').addEventListener('change', function(e) {

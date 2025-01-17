@@ -2,19 +2,21 @@ package user
 
 import (
 	"database/sql"
-	"errors"
 	"fmt"
-
 	"github.com/google/uuid"
 	"github.com/jmoiron/sqlx"
+	"volaticus-go/internal/common/models"
 )
 
-var (
-	ErrUserNotFound       = errors.New("user not found")
-	ErrEmailExists        = errors.New("email already exists")
-	ErrUsernameExists     = errors.New("username already exists")
-	ErrInvalidCredentials = errors.New("invalid credentials")
-)
+// UserRepository defines methods for user persistence
+type UserRepository interface {
+	Create(user *CreateUserRequest) (*models.User, error)
+	GetByID(id uuid.UUID) (*models.User, error)
+	GetByEmail(email string) (*models.User, error)
+	GetByUsername(username string) (*models.User, error)
+	Update(id uuid.UUID, updates *UpdateUserRequest) error
+	Delete(id uuid.UUID) error
+}
 
 type postgresUserRepository struct {
 	db *sqlx.DB
@@ -25,7 +27,7 @@ func NewPostgresUserRepository(db *sqlx.DB) UserRepository {
 	return &postgresUserRepository{db: db}
 }
 
-func (r *postgresUserRepository) Create(req *CreateUserRequest) (*User, error) {
+func (r *postgresUserRepository) Create(req *CreateUserRequest) (*models.User, error) {
 	// Check if email exists
 	var exists bool
 	err := r.db.Get(&exists, "SELECT EXISTS(SELECT 1 FROM users WHERE email = $1)", req.Email)
@@ -51,7 +53,7 @@ func (r *postgresUserRepository) Create(req *CreateUserRequest) (*User, error) {
 		return nil, fmt.Errorf("hashing password: %w", err)
 	}
 
-	user := &User{
+	user := &models.User{
 		ID:           uuid.New(),
 		Email:        req.Email,
 		Username:     req.Username,
@@ -73,8 +75,8 @@ func (r *postgresUserRepository) Create(req *CreateUserRequest) (*User, error) {
 	return user, nil
 }
 
-func (r *postgresUserRepository) GetByID(id uuid.UUID) (*User, error) {
-	user := new(User)
+func (r *postgresUserRepository) GetByID(id uuid.UUID) (*models.User, error) {
+	user := new(models.User)
 	err := r.db.Get(user, "SELECT * FROM users WHERE id = $1", id)
 	if err == sql.ErrNoRows {
 		return nil, ErrUserNotFound
@@ -85,8 +87,8 @@ func (r *postgresUserRepository) GetByID(id uuid.UUID) (*User, error) {
 	return user, nil
 }
 
-func (r *postgresUserRepository) GetByEmail(email string) (*User, error) {
-	user := new(User)
+func (r *postgresUserRepository) GetByEmail(email string) (*models.User, error) {
+	user := new(models.User)
 	err := r.db.Get(user, "SELECT * FROM users WHERE email = $1", email)
 	if err == sql.ErrNoRows {
 		return nil, ErrUserNotFound
@@ -97,8 +99,8 @@ func (r *postgresUserRepository) GetByEmail(email string) (*User, error) {
 	return user, nil
 }
 
-func (r *postgresUserRepository) GetByUsername(username string) (*User, error) {
-	user := new(User)
+func (r *postgresUserRepository) GetByUsername(username string) (*models.User, error) {
+	user := new(models.User)
 	err := r.db.Get(user, "SELECT * FROM users WHERE username = $1", username)
 	if err == sql.ErrNoRows {
 		return nil, ErrUserNotFound
@@ -114,9 +116,9 @@ func (r *postgresUserRepository) Update(id uuid.UUID, req *UpdateUserRequest) er
         UPDATE users
         SET email = COALESCE($1, email),
             username = COALESCE($2, username),
-            is_active = COALESCE($5, is_active),
+            is_active = COALESCE($3, is_active),
             updated_at = CURRENT_TIMESTAMP
-        WHERE id = $6`
+        WHERE id = $4`
 
 	var email, username *string
 	var isActive *bool

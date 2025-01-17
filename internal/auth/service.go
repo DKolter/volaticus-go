@@ -7,12 +7,11 @@ import (
 	"encoding/base64"
 	"errors"
 	"fmt"
-	"log"
-	"time"
-	"volaticus-go/internal/user"
-
 	"github.com/go-chi/jwtauth/v5"
 	"github.com/google/uuid"
+	"log"
+	"time"
+	"volaticus-go/internal/common/models"
 )
 
 type Service struct {
@@ -21,7 +20,7 @@ type Service struct {
 	secretKey []byte // used for APIToken generation
 }
 
-const TokenExpiry = time.Hour * 24 // 24 hours TODO: get from config
+const TokenExpiry = time.Hour * 24 // 24 hours TODO: implement refresh tokens
 
 // NewService creates a new auth service
 func NewService(secretKey string, repo TokenRepository) *Service {
@@ -38,7 +37,7 @@ func (s *Service) GetAuth() *jwtauth.JWTAuth {
 }
 
 // GenerateToken creates a new JWT token for a user
-func (s *Service) GenerateToken(user *user.User) (string, error) {
+func (s *Service) GenerateToken(user *models.User) (string, error) {
 	claims := map[string]interface{}{
 		"user_id":  user.ID.String(),
 		"username": user.Username,
@@ -65,7 +64,7 @@ type LoginResponse struct {
 	User  interface{} `json:"user"`
 }
 
-func (s *Service) GenerateAPIToken(userID uuid.UUID, name string) (*APIToken, error) {
+func (s *Service) GenerateAPIToken(userID uuid.UUID, name string) (*models.APIToken, error) {
 	var token string
 	var exists bool
 
@@ -101,7 +100,7 @@ func (s *Service) GenerateAPIToken(userID uuid.UUID, name string) (*APIToken, er
 		return nil, errors.New("failed to generate unique token after 3 attempts")
 	}
 
-	apiToken := &APIToken{
+	apiToken := &models.APIToken{
 		ID:        uuid.New(),
 		UserID:    userID,
 		Name:      name,
@@ -124,7 +123,7 @@ func (s *Service) GenerateAPIToken(userID uuid.UUID, name string) (*APIToken, er
 	return apiToken, nil
 }
 
-func (s *Service) ValidateAPIToken(token string) (*APIToken, error) {
+func (s *Service) ValidateAPIToken(token string) (*models.APIToken, error) {
 	apiToken, err := s.repo.GetAPITokenByToken(token)
 	if err != nil {
 		return nil, err
@@ -141,7 +140,7 @@ func (s *Service) ValidateAPIToken(token string) (*APIToken, error) {
 	return apiToken, nil
 }
 
-func (s *Service) GetUserAPITokens(userid uuid.UUID) ([]*APIToken, error) {
+func (s *Service) GetUserAPITokens(userid uuid.UUID) ([]*models.APIToken, error) {
 	tokens, err := s.repo.ListUserTokens(userid)
 	if err != nil {
 		return nil, err
