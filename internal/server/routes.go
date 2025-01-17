@@ -13,12 +13,6 @@ import (
 	"github.com/go-chi/jwtauth/v5"
 )
 
-// TODO: Move this into config / get from env variables
-const (
-	MaxFileSize = 100 << 20 // 100 MB
-	UploadDir   = "./tmp"
-)
-
 func (s *Server) RegisterRoutes() http.Handler {
 
 	r := chi.NewRouter()

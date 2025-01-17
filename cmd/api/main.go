@@ -2,11 +2,14 @@ package main
 
 import (
 	"context"
+	"errors"
 	"log"
+	"net/http"
 	"os"
 	"os/signal"
 	"syscall"
 	"time"
+	"volaticus-go/internal/config"
 
 	"volaticus-go/internal/database"
 	"volaticus-go/internal/database/migrate"
@@ -15,9 +18,14 @@ import (
 
 func main() {
 	// Load configuration
-	config, err := server.NewConfig()
+	cfg, err := config.NewConfig()
 	if err != nil {
 		log.Fatalf("Error loading configuration: %v", err)
+	}
+
+	// Print configuration if in development
+	if cfg.Env == "dev" {
+		cfg.String()
 	}
 
 	// Initialize database
@@ -36,7 +44,7 @@ func main() {
 	}
 
 	// Create and initialize server
-	srv, err := server.NewServer(config, db)
+	srv, err := server.NewServer(cfg, db)
 	if err != nil {
 		log.Fatalf("Error creating server: %v", err)
 	}
@@ -67,8 +75,8 @@ func main() {
 	}()
 
 	// Start the server
-	log.Printf("Server is ready to handle requests at :%d", config.Port)
-	if err := httpServer.ListenAndServe(); err != nil {
+	log.Printf("Server is ready to handle requests at :%d", cfg.Port)
+	if err := httpServer.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
 		log.Fatalf("Could not start server: %v", err)
 	}
 

@@ -21,7 +21,7 @@ type UploadedFile struct {
 	CreatedAt      time.Time  `db:"created_at" json:"created_at"`                       // Timestamp when the file was uploaded
 	LastAccessedAt *time.Time `db:"last_accessed_at" json:"last_accessed_at,omitempty"` // Timestamp when the file was last accessed
 	AccessCount    int        `db:"access_count" json:"access_count"`                   // Number of times the file has been accessed
-	ExpiredAt      time.Time  `db:"expires_at" json:"expires_at"`                       // Timestamp when the file will expire
+	ExpiresAt      time.Time  `db:"expires_at" json:"expires_at"`                       // Timestamp when the file will expire
 	URLValue       string     `db:"url_value" json:"url_value"`                         // URL value associated with the uploaded file
 }
 

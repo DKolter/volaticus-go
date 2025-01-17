@@ -3,6 +3,7 @@ package uploader
 import (
 	"fmt"
 	"log"
+	"mime/multipart"
 	"net/http"
 	"path/filepath"
 	"volaticus-go/cmd/web/components"
@@ -32,7 +33,12 @@ func (h *Handler) HandleVerifyFile(w http.ResponseWriter, r *http.Request) {
 		}
 		return
 	}
-	defer file.Close()
+	defer func(file multipart.File) {
+		err := file.Close()
+		if err != nil {
+			log.Printf("Error closing file: %v", err)
+		}
+	}(file)
 
 	// Validate the file using service
 	result := h.service.VerifyFile(file, header)
@@ -59,7 +65,12 @@ func (h *Handler) HandleUpload(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Invalid File", http.StatusBadRequest)
 		return
 	}
-	defer file.Close()
+	defer func(file multipart.File) {
+		err := file.Close()
+		if err != nil {
+			log.Printf("Error closing file: %v", err)
+		}
+	}(file)
 
 	userContext := userctx.GetUserFromContext(r.Context())
 	if userContext == nil {
@@ -131,7 +142,7 @@ func (h *Handler) HandleServeFile(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Disposition", fmt.Sprintf(`inline; filename="%s"`, file.OriginalName))
 	}
 
-	path := filepath.Join(uploadDir, file.UniqueFilename)
+	path := filepath.Join(h.service.config.UploadDirectory, file.UniqueFilename)
 	log.Printf("Serving file from path: %s", path)
 	http.ServeFile(w, r, path)
 

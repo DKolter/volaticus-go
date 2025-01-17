@@ -6,6 +6,7 @@ import (
 	"log"
 	"net/http"
 	"time"
+	"volaticus-go/internal/config"
 
 	_ "github.com/joho/godotenv/autoload"
 
@@ -17,7 +18,7 @@ import (
 
 // Server represents the HTTP server and its dependencies
 type Server struct {
-	config      *Config
+	config      *config.Config
 	db          database.Service
 	authService *auth.Service
 	authHandler *auth.Handler
@@ -26,18 +27,20 @@ type Server struct {
 }
 
 // NewServer creates a new server instance
-func NewServer(config *Config, db database.Service) (*Server, error) {
+func NewServer(config *config.Config, db database.Service) (*Server, error) {
 	// FIXME: Does this hold too many dependencies?
 	// Initialize repositories
 	userRepo := user.NewPostgresUserRepository(db.DB())
 	tokenRepo := auth.NewPostgresTokenRepository(db.DB())
+
+	// Initialize file repository
 	fileRepo := uploader.NewPostgresRepository(db.DB())
 
 	// Initialize auth service
 	authService := auth.NewService(config.Secret, tokenRepo)
 
 	// Initialize file service & start expired files worker
-	fileService := uploader.NewService(fileRepo, "")
+	fileService := uploader.NewService(fileRepo, config)
 	uploader.StartExpiredFilesWorker(fileService, 1*time.Minute)
 
 	// Initialize handlers
