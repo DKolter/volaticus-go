@@ -41,7 +41,7 @@ func (h *Handler) HandleVerifyFile(w http.ResponseWriter, r *http.Request) {
 	}(file)
 
 	// Validate the file using service
-	result := h.service.VerifyFile(file, header)
+	result := h.service.VerifyFile(r.Context(), file, header)
 
 	if !result.IsValid {
 		err := components.ValidationError(result.Error).Render(r.Context(), w)
@@ -99,7 +99,7 @@ func (h *Handler) HandleUpload(w http.ResponseWriter, r *http.Request) {
 		UserID:  userContext.ID,
 	}
 
-	response, err := h.service.UploadFile(uploadReq)
+	response, err := h.service.UploadFile(r.Context(), uploadReq)
 	if err != nil {
 		log.Printf("Error uploading file: %v", err)
 		http.Error(w, "Error uploading file", http.StatusInternalServerError)
@@ -123,7 +123,7 @@ func (h *Handler) HandleServeFile(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	file, err := h.service.GetFile(urlvalue)
+	file, err := h.service.GetFile(r.Context(), urlvalue)
 	if err != nil {
 		http.Error(w, "File not found", http.StatusNotFound)
 		return

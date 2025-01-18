@@ -44,7 +44,7 @@ func (s *Server) handleSettings(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Get user's API tokens
-	userTokens, err := s.authService.GetUserAPITokens(user.ID)
+	userTokens, err := (*s.authService).GetUserAPITokens(r.Context(), user.ID)
 	if err != nil {
 		// Log error but don't expose internal error to user
 		log.Printf("Error fetching user tokens: %v", err)
@@ -79,6 +79,6 @@ func (s *Server) showTokenModal(w http.ResponseWriter, r *http.Request) {
 
 // API Handlers
 func (s *Server) healthHandler(w http.ResponseWriter, r *http.Request) {
-	health := s.db.Health()
+	health := s.db.Health(r.Context())
 	s.sendJSON(w, http.StatusOK, true, "Health check successful", health)
 }

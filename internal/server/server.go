@@ -1,6 +1,7 @@
 package server
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"log"
@@ -20,7 +21,7 @@ import (
 // Server represents the HTTP server and its dependencies
 type Server struct {
 	config           *config.Config
-	db               database.Service
+	db               *database.DB
 	authService      *auth.Service
 	authHandler      *auth.Handler
 	userHandler      *user.Handler
@@ -29,25 +30,27 @@ type Server struct {
 }
 
 // NewServer creates a new server instance
-func NewServer(config *config.Config, db database.Service) (*Server, error) {
+func NewServer(config *config.Config, db *database.DB) (*Server, error) {
 	// Initialize repositories
-	userRepo := user.NewPostgresUserRepository(db.DB())
-	tokenRepo := auth.NewPostgresTokenRepository(db.DB())
-	fileRepo := uploader.NewPostgresRepository(db.DB())
-	shortenerRepo := shortener.NewPostgresRepository(db.DB())
+	userRepo := user.NewRepository(db)
+	tokenRepo := auth.NewRepository(db)
+	fileRepo := uploader.NewRepository(db)
+	shortenerRepo := shortener.NewRepository(db)
 
-	// Initialize auth service
+	// Initialize Services
 	authService := auth.NewService(config.Secret, tokenRepo)
+	userService := user.NewService(userRepo)
+	fileService := uploader.NewService(fileRepo, config)
 
 	// Initialize file service & start expired files worker
-	fileService := uploader.NewService(fileRepo, config)
-	uploader.StartExpiredFilesWorker(fileService, 1*time.Minute)
+	ctx := context.Background() // TODO: Use proper context
+	uploader.StartExpiredFilesWorker(ctx, fileService, 1*time.Minute)
 
 	// Initialize shortened URL service
 	shortenerService := shortener.NewService(shortenerRepo, config)
 
 	// Initialize handlers
-	userHandler := user.NewHandler(userRepo, authService)
+	userHandler := user.NewHandler(userService, authService)
 	authHandler := auth.NewHandler(userRepo, authService)
 	fileHandler := uploader.NewHandler(fileService)
 	shortenerHandler := shortener.NewHandler(shortenerService)
@@ -55,7 +58,7 @@ func NewServer(config *config.Config, db database.Service) (*Server, error) {
 	server := &Server{
 		config:           config,
 		db:               db,
-		authService:      authService,
+		authService:      &authService,
 		authHandler:      authHandler,
 		userHandler:      userHandler,
 		fileHandler:      fileHandler,

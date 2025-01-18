@@ -11,6 +11,14 @@ import (
 	"github.com/testcontainers/testcontainers-go/wait"
 )
 
+var (
+	database string
+	password string
+	username string
+	host     string
+	port     string
+)
+
 func mustStartPostgresContainer() (func(context.Context) error, error) {
 	var (
 		dbName = "database"
@@ -67,16 +75,38 @@ func TestMain(m *testing.M) {
 }
 
 func TestNew(t *testing.T) {
-	srv := New()
+	cfg := Config{
+		Host:     host,
+		Port:     port,
+		Database: database,
+		Username: username,
+		Password: password,
+		Schema:   "public",
+	}
+	srv, err := New(cfg)
+	if err != nil {
+		t.Fatalf("New() returned error: %v", err)
+	}
 	if srv == nil {
 		t.Fatal("New() returned nil")
 	}
 }
 
 func TestHealth(t *testing.T) {
-	srv := New()
+	cfg := Config{
+		Host:     host,
+		Port:     port,
+		Database: database,
+		Username: username,
+		Password: password,
+		Schema:   "public",
+	}
+	srv, err := New(cfg)
+	if err != nil {
+		t.Fatalf("New() returned error: %v", err)
+	}
 
-	stats := srv.Health()
+	stats := srv.Health(context.Background())
 
 	if stats["status"] != "up" {
 		t.Fatalf("expected status to be up, got %s", stats["status"])
@@ -85,14 +115,21 @@ func TestHealth(t *testing.T) {
 	if _, ok := stats["error"]; ok {
 		t.Fatalf("expected error not to be present")
 	}
-
-	if stats["message"] != "It's healthy" {
-		t.Fatalf("expected message to be 'It's healthy', got %s", stats["message"])
-	}
 }
 
 func TestClose(t *testing.T) {
-	srv := New()
+	cfg := Config{
+		Host:     host,
+		Port:     port,
+		Database: database,
+		Username: username,
+		Password: password,
+		Schema:   "public",
+	}
+	srv, err := New(cfg)
+	if err != nil {
+		t.Fatalf("New() returned error: %v", err)
+	}
 
 	if srv.Close() != nil {
 		t.Fatalf("expected Close() to return nil")

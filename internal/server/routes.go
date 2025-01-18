@@ -16,7 +16,7 @@ func (s *Server) RegisterRoutes() http.Handler {
 
 	// JWT authentication middleware
 	// Get the JWT auth instance
-	tokenAuth := s.authService.GetAuth()
+	tokenAuth := (*s.authService).GetAuth()
 
 	// Add JWT verification middleware
 	r.Use(jwtauth.Verifier(tokenAuth))
@@ -44,7 +44,7 @@ func (s *Server) RegisterRoutes() http.Handler {
 	r.Group(func(r chi.Router) {
 		// Login & register functionality
 		r.Get("/login", s.handleLogin)
-		r.Post("/login", s.authHandler.HandleLogin)
+		r.Post("/login", s.userHandler.HandleLogin)
 		r.Get("/register", s.handleRegister)
 		r.Post("/register", s.userHandler.HandleRegister)
 
@@ -63,6 +63,9 @@ func (s *Server) RegisterRoutes() http.Handler {
 		// Main pages
 		r.Get("/", s.handleHome)
 		r.Get("/files", s.handleFiles)
+
+		// Logout
+		r.Get("/logout", s.userHandler.HandleLogout)
 
 		// Upload routes
 		r.Route("/upload", func(r chi.Router) {

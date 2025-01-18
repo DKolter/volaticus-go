@@ -41,7 +41,7 @@ func (h *Handler) HandleCreateShortURL(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	response, err := h.service.CreateShortURL(user.ID, &req)
+	response, err := h.service.CreateShortURL(r.Context(), user.ID, &req)
 	if err != nil {
 		if strings.Contains(err.Error(), "vanity code") {
 			HandleError(w, ErrVanityCodeTaken, http.StatusConflict)
@@ -77,7 +77,7 @@ func (h *Handler) HandleRedirect(w http.ResponseWriter, r *http.Request) {
 		IPAddress: getIPAddress(r),
 	}
 
-	originalURL, err := h.service.GetOriginalURL(shortCode, reqInfo)
+	originalURL, err := h.service.GetOriginalURL(r.Context(), shortCode, reqInfo)
 	if err != nil {
 		if strings.Contains(err.Error(), "expired") {
 			HandleError(w, ErrURLExpired, http.StatusGone)
@@ -98,7 +98,7 @@ func (h *Handler) HandleGetUserURLs(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	urls, err := h.service.GetUserURLs(user.ID)
+	urls, err := h.service.GetUserURLs(r.Context(), user.ID)
 	if err != nil {
 		log.Printf("Error retrieving user URLs: %v", err)
 		HandleError(w, LogError(err, "retrieving user URLs"), http.StatusInternalServerError)
@@ -129,7 +129,7 @@ func (h *Handler) HandleGetURLAnalytics(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	analytics, err := h.service.GetURLAnalytics(urlID, user.ID)
+	analytics, err := h.service.GetURLAnalytics(r.Context(), urlID, user.ID)
 	if err != nil {
 		if strings.Contains(err.Error(), "unauthorized") {
 			HandleError(w, ErrUnauthorized, http.StatusForbidden)
@@ -177,7 +177,7 @@ func (h *Handler) HandleDeleteURL(w http.ResponseWriter, r *http.Request) {
 	// Check if the URL ID is a valid UUID
 	if _, err := uuid.Parse(urlID); err != nil {
 		// Handle non-UUID short codes
-		if err := h.service.DeleteURLByShortCode(urlID, user.ID); err != nil {
+		if err := h.service.DeleteURLByShortCode(r.Context(), urlID, user.ID); err != nil {
 			if strings.Contains(err.Error(), "unauthorized") {
 				HandleError(w, ErrUnauthorized, http.StatusForbidden)
 				return
@@ -188,7 +188,7 @@ func (h *Handler) HandleDeleteURL(w http.ResponseWriter, r *http.Request) {
 		}
 	} else {
 		// Handle UUIDs
-		if err := h.service.DeleteURL(uuid.MustParse(urlID), user.ID); err != nil {
+		if err := h.service.DeleteURL(r.Context(), uuid.MustParse(urlID), user.ID); err != nil {
 			if strings.Contains(err.Error(), "unauthorized") {
 				HandleError(w, ErrUnauthorized, http.StatusForbidden)
 				return
@@ -242,7 +242,7 @@ func (h *Handler) HandleUpdateExpiration(w http.ResponseWriter, r *http.Request)
 		expiresAt = &expTime
 	}
 
-	if err := h.service.UpdateURLExpiration(urlID, user.ID, expiresAt); err != nil {
+	if err := h.service.UpdateURLExpiration(r.Context(), urlID, user.ID, expiresAt); err != nil {
 		if strings.Contains(err.Error(), "unauthorized") {
 			HandleError(w, ErrUnauthorized, http.StatusForbidden)
 			return
@@ -290,7 +290,7 @@ func (h *Handler) HandleShortenForm(w http.ResponseWriter, r *http.Request) {
 		req.ExpiresAt = &expTime
 	}
 
-	response, err := h.service.CreateShortURL(user.ID, &req)
+	response, err := h.service.CreateShortURL(r.Context(), user.ID, &req)
 	if err != nil {
 		log.Printf("Error creating short URL: %v", err)
 

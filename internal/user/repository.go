@@ -1,187 +1,172 @@
 package user
 
 import (
+	"context"
 	"database/sql"
-	"fmt"
+	"errors"
 	"github.com/google/uuid"
 	"github.com/jmoiron/sqlx"
 	"volaticus-go/internal/common/models"
+	"volaticus-go/internal/database"
 )
 
-// UserRepository defines methods for user persistence
-type UserRepository interface {
-	Create(user *CreateUserRequest) (*models.User, error)
-	GetByID(id uuid.UUID) (*models.User, error)
-	GetByEmail(email string) (*models.User, error)
-	GetByUsername(username string) (*models.User, error)
-	Update(id uuid.UUID, updates *UpdateUserRequest) error
-	Delete(id uuid.UUID) error
+// Repository defines the user repository interface
+type Repository interface {
+	// Create creates a new user
+	Create(ctx context.Context, user *models.User) error
+	// GetByID retrieves a user by their ID
+	GetByID(ctx context.Context, id uuid.UUID) (*models.User, error)
+	// GetByEmail retrieves a user by their email
+	GetByEmail(ctx context.Context, email string) (*models.User, error)
+	// GetByUsername retrieves a user by their username
+	GetByUsername(ctx context.Context, username string) (*models.User, error)
+	// Update updates a user's information
+	Update(ctx context.Context, user *models.User) error
+	// Delete performs a soft delete of a user
+	Delete(ctx context.Context, id uuid.UUID) error
 }
 
-type postgresUserRepository struct {
-	db *sqlx.DB
+type repository struct {
+	*database.Repository
 }
 
-// NewPostgresUserRepository creates a new PostgreSQL user repository
-func NewPostgresUserRepository(db *sqlx.DB) UserRepository {
-	return &postgresUserRepository{db: db}
+// NewRepository creates a new user repository
+func NewRepository(db *database.DB) Repository {
+	return &repository{
+		Repository: database.NewRepository(db),
+	}
 }
 
-func (r *postgresUserRepository) Create(req *CreateUserRequest) (*models.User, error) {
-	// Check if email exists
-	var exists bool
-	err := r.db.Get(&exists, "SELECT EXISTS(SELECT 1 FROM users WHERE email = $1)", req.Email)
-	if err != nil {
-		return nil, fmt.Errorf("checking email existence: %w", err)
-	}
-	if exists {
-		return nil, ErrEmailExists
-	}
+func (r *repository) Create(ctx context.Context, user *models.User) error {
+	return r.WithTx(ctx, func(tx *sqlx.Tx) error {
+		// Check if email exists
+		var exists bool
+		if err := tx.GetContext(ctx, &exists,
+			"SELECT EXISTS(SELECT 1 FROM users WHERE email = $1)", user.Email); err != nil {
+			return err
+		}
+		if exists {
+			return ErrEmailExists
+		}
 
-	// Check if username exists
-	err = r.db.Get(&exists, "SELECT EXISTS(SELECT 1 FROM users WHERE username = $1)", req.Username)
-	if err != nil {
-		return nil, fmt.Errorf("checking username existence: %w", err)
-	}
-	if exists {
-		return nil, ErrUsernameExists
-	}
+		// Check if username exists
+		if err := tx.GetContext(ctx, &exists,
+			"SELECT EXISTS(SELECT 1 FROM users WHERE username = $1)", user.Username); err != nil {
+			return err
+		}
+		if exists {
+			return ErrUsernameExists
+		}
 
-	// Hash password
-	passwordHash, err := HashPassword(req.Password)
-	if err != nil {
-		return nil, fmt.Errorf("hashing password: %w", err)
-	}
+		query := `
+            INSERT INTO users (id, email, username, password_hash, is_active, created_at, updated_at)
+            VALUES (:id, :email, :username, :password_hash, :is_active, NOW(), NOW())`
 
-	user := &models.User{
-		ID:           uuid.New(),
-		Email:        req.Email,
-		Username:     req.Username,
-		PasswordHash: passwordHash,
-		IsActive:     true,
-	}
-
-	query := `
-        INSERT INTO users (id, email, username, password_hash, is_active)
-        VALUES ($1, $2, $3, $4, $5)
-        RETURNING *`
-
-	err = r.db.Get(user, query,
-		user.ID, user.Email, user.Username, user.PasswordHash, user.IsActive)
-	if err != nil {
-		return nil, fmt.Errorf("creating user: %w", err)
-	}
-
-	return user, nil
+		_, err := tx.NamedExecContext(ctx, query, user)
+		return err
+	})
 }
 
-func (r *postgresUserRepository) GetByID(id uuid.UUID) (*models.User, error) {
-	user := new(models.User)
-	err := r.db.Get(user, "SELECT * FROM users WHERE id = $1", id)
-	if err == sql.ErrNoRows {
+func (r *repository) GetByID(ctx context.Context, id uuid.UUID) (*models.User, error) {
+	var user models.User
+	err := r.Get(ctx, &user, "SELECT * FROM users WHERE id = $1", id)
+	if errors.Is(err, sql.ErrNoRows) {
 		return nil, ErrUserNotFound
 	}
-	if err != nil {
-		return nil, fmt.Errorf("getting user by id: %w", err)
-	}
-	return user, nil
+	return &user, err
 }
 
-func (r *postgresUserRepository) GetByEmail(email string) (*models.User, error) {
-	user := new(models.User)
-	err := r.db.Get(user, "SELECT * FROM users WHERE email = $1", email)
-	if err == sql.ErrNoRows {
+func (r *repository) GetByEmail(ctx context.Context, email string) (*models.User, error) {
+	var user models.User
+	err := r.Get(ctx, &user, "SELECT * FROM users WHERE email = $1", email)
+	if errors.Is(err, sql.ErrNoRows) {
 		return nil, ErrUserNotFound
 	}
-	if err != nil {
-		return nil, fmt.Errorf("getting user by email: %w", err)
-	}
-	return user, nil
+	return &user, err
 }
 
-func (r *postgresUserRepository) GetByUsername(username string) (*models.User, error) {
-	user := new(models.User)
-	err := r.db.Get(user, "SELECT * FROM users WHERE username = $1", username)
-	if err == sql.ErrNoRows {
+func (r *repository) GetByUsername(ctx context.Context, username string) (*models.User, error) {
+	var user models.User
+	err := r.Get(ctx, &user, "SELECT * FROM users WHERE username = $1", username)
+	if errors.Is(err, sql.ErrNoRows) {
 		return nil, ErrUserNotFound
 	}
-	if err != nil {
-		return nil, fmt.Errorf("getting user by username: %w", err)
-	}
-	return user, nil
+	return &user, err
 }
 
-func (r *postgresUserRepository) Update(id uuid.UUID, req *UpdateUserRequest) error {
-	query := `
-        UPDATE users
-        SET email = COALESCE($1, email),
-            username = COALESCE($2, username),
-            is_active = COALESCE($3, is_active),
-            updated_at = CURRENT_TIMESTAMP
-        WHERE id = $4`
+func (r *repository) Update(ctx context.Context, user *models.User) error {
+	return r.WithTx(ctx, func(tx *sqlx.Tx) error {
+		// Check if email is being changed and ensure it's unique
+		var existingUser models.User
+		err := tx.GetContext(ctx, &existingUser, "SELECT email, username FROM users WHERE id = $1", user.ID)
+		if errors.Is(err, sql.ErrNoRows) {
+			return ErrUserNotFound
+		}
+		if err != nil {
+			return err
+		}
 
-	var email, username *string
-	var isActive *bool
-
-	if req != nil {
-		// Check if email exists if it's being updated
-		if req.Email != nil {
+		if existingUser.Email != user.Email {
 			var exists bool
-			err := r.db.Get(&exists, "SELECT EXISTS(SELECT 1 FROM users WHERE email = $1 AND id != $2)", req.Email, id)
-			if err != nil {
-				return fmt.Errorf("checking email existence: %w", err)
+			if err := tx.GetContext(ctx, &exists,
+				"SELECT EXISTS(SELECT 1 FROM users WHERE email = $1 AND id != $2)",
+				user.Email, user.ID); err != nil {
+				return err
 			}
 			if exists {
 				return ErrEmailExists
 			}
-			email = req.Email
 		}
 
-		// Check if username exists if it's being updated
-		if req.Username != nil {
+		// Similar check for username
+		if existingUser.Username != user.Username {
 			var exists bool
-			err := r.db.Get(&exists, "SELECT EXISTS(SELECT 1 FROM users WHERE username = $1 AND id != $2)", req.Username, id)
-			if err != nil {
-				return fmt.Errorf("checking username existence: %w", err)
+			if err := tx.GetContext(ctx, &exists,
+				"SELECT EXISTS(SELECT 1 FROM users WHERE username = $1 AND id != $2)",
+				user.Username, user.ID); err != nil {
+				return err
 			}
 			if exists {
 				return ErrUsernameExists
 			}
-			username = req.Username
 		}
 
-		isActive = req.IsActive
-	}
+		query := `
+            UPDATE users 
+            SET email = :email, 
+                username = :username,
+                is_active = :is_active,
+                updated_at = NOW()
+            WHERE id = :id`
 
-	result, err := r.db.Exec(query, email, username, isActive, id)
-	if err != nil {
-		return fmt.Errorf("updating user: %w", err)
-	}
+		result, err := tx.NamedExecContext(ctx, query, user)
+		if err != nil {
+			return err
+		}
 
-	rowsAffected, err := result.RowsAffected()
-	if err != nil {
-		return fmt.Errorf("getting rows affected: %w", err)
-	}
+		rows, err := result.RowsAffected()
+		if err != nil {
+			return err
+		}
+		if rows == 0 {
+			return ErrUserNotFound
+		}
 
-	if rowsAffected == 0 {
-		return ErrUserNotFound
-	}
-
-	return nil
+		return nil
+	})
 }
 
-func (r *postgresUserRepository) Delete(id uuid.UUID) error {
-	result, err := r.db.Exec("DELETE FROM users WHERE id = $1", id)
+func (r *repository) Delete(ctx context.Context, id uuid.UUID) error {
+	result, err := r.Exec(ctx, "UPDATE users SET is_active = false, updated_at = NOW() WHERE id = $1", id)
 	if err != nil {
-		return fmt.Errorf("deleting user: %w", err)
+		return err
 	}
 
-	rowsAffected, err := result.RowsAffected()
+	rows, err := result.RowsAffected()
 	if err != nil {
-		return fmt.Errorf("getting rows affected: %w", err)
+		return err
 	}
-
-	if rowsAffected == 0 {
+	if rows == 0 {
 		return ErrUserNotFound
 	}
 

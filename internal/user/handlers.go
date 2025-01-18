@@ -2,18 +2,27 @@ package user
 
 import (
 	"encoding/json"
+	"errors"
 	"log"
 	"net/http"
+	"volaticus-go/internal/common/models"
 )
 
+// AuthService defines the interface for authentication services.
+// It contains a single method GenerateToken which takes a user model
+// and returns a JWT token string or an error.
+type AuthService interface {
+	GenerateToken(user *models.User) (string, error)
+}
+
 type Handler struct {
-	service     *Service
+	service     Service
 	authService AuthService
 }
 
-func NewHandler(repo UserRepository, authService AuthService) *Handler {
+func NewHandler(service Service, authService AuthService) *Handler {
 	return &Handler{
-		service:     NewService(repo),
+		service:     service,
 		authService: authService,
 	}
 }
@@ -39,16 +48,13 @@ func (h *Handler) HandleRegister(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Create user using service
-	user, err := h.service.RegisterUser(&req)
+	user, err := h.service.Register(r.Context(), &req)
 	if err != nil {
-		switch err {
-		case ErrEmailExists:
+		switch {
+		case errors.Is(err, ErrEmailExists):
 			http.Error(w, "Email already exists", http.StatusConflict)
-		case ErrUsernameExists:
+		case errors.Is(err, ErrUsernameExists):
 			http.Error(w, "Username already exists", http.StatusConflict)
-		case ErrInvalidInput:
-			http.Error(w, "Invalid input", http.StatusBadRequest)
 		default:
 			log.Printf("Error registering user: %v", err)
 			http.Error(w, "Internal server error", http.StatusInternalServerError)
@@ -56,22 +62,99 @@ func (h *Handler) HandleRegister(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Generate JWT token
 	token, err := h.authService.GenerateToken(user)
 	if err != nil {
+		log.Printf("Error generating token: %v", err)
 		http.Error(w, "Error generating token", http.StatusInternalServerError)
 		return
 	}
 
-	// Set JWT cookie
+	// Set JWT cookie with appropriate security flags
 	http.SetCookie(w, &http.Cookie{
 		Name:     "jwt",
 		Value:    token,
 		Path:     "/",
 		HttpOnly: true,
-		Secure:   true,
+		Secure:   r.TLS != nil,
+		SameSite: http.SameSiteStrictMode,
+		MaxAge:   3600 * 24, // 24 hours
+	})
+
+	// If this is a HTMX request, send a redirect
+	if r.Header.Get("HX-Request") == "true" {
+		w.Header().Set("HX-Redirect", "/")
+		return
+	}
+
+	// Otherwise return success status
+	w.WriteHeader(http.StatusCreated)
+}
+
+func (h *Handler) HandleLogin(w http.ResponseWriter, r *http.Request) {
+	var req struct {
+		Username string `json:"username"`
+		Password string `json:"password"`
+	}
+
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, "Invalid request body", http.StatusBadRequest)
+		return
+	}
+
+	user, err := h.service.ValidateCredentials(r.Context(), req.Username, req.Password)
+	if err != nil {
+		switch {
+		case errors.Is(err, ErrUserNotFound):
+			http.Error(w, "Invalid credentials", http.StatusUnauthorized)
+		case errors.Is(err, ErrInvalidCredentials):
+			http.Error(w, "Invalid credentials", http.StatusUnauthorized)
+		default:
+			log.Printf("Error validating credentials: %v", err)
+			http.Error(w, "Internal server error", http.StatusInternalServerError)
+		}
+		return
+	}
+
+	token, err := h.authService.GenerateToken(user)
+	if err != nil {
+		log.Printf("Error generating token: %v", err)
+		http.Error(w, "Error generating token", http.StatusInternalServerError)
+		return
+	}
+
+	http.SetCookie(w, &http.Cookie{
+		Name:     "jwt",
+		Value:    token,
+		Path:     "/",
+		HttpOnly: true,
+		Secure:   r.TLS != nil,
 		SameSite: http.SameSiteStrictMode,
 		MaxAge:   3600 * 24,
 	})
-	//w.Header().Set("HX-Redirect", "/")
+
+	if r.Header.Get("HX-Request") == "true" {
+		w.Header().Set("HX-Redirect", "/")
+		return
+	}
+
+	w.WriteHeader(http.StatusOK)
+}
+
+func (h *Handler) HandleLogout(w http.ResponseWriter, r *http.Request) {
+	http.SetCookie(w, &http.Cookie{
+		Name:     "jwt",
+		Value:    "",
+		Path:     "/",
+		MaxAge:   -1,
+		HttpOnly: true,
+		Secure:   r.TLS != nil,
+		SameSite: http.SameSiteStrictMode,
+	})
+
+	if r.Header.Get("HX-Request") == "true" {
+		w.Header().Set("HX-Redirect", "/login")
+		return
+	}
+
+	http.Redirect(w, r, "/login", http.StatusSeeOther)
 }

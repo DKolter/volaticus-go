@@ -1,6 +1,7 @@
 package uploader
 
 import (
+	"context"
 	"fmt"
 	"github.com/google/uuid"
 	"io"
@@ -42,7 +43,7 @@ type UploadRequest struct {
 	UserID  uuid.UUID
 }
 
-// FileValidationResult contains validation results
+// FileValidationResult contains validation results TODO: json tags
 type FileValidationResult struct {
 	IsValid     bool
 	FileName    string
@@ -52,7 +53,7 @@ type FileValidationResult struct {
 }
 
 // VerifyFile checks if the file meets upload requirements
-func (s *Service) VerifyFile(file multipart.File, header *multipart.FileHeader) *FileValidationResult {
+func (s *Service) VerifyFile(ctx context.Context, file multipart.File, header *multipart.FileHeader) *FileValidationResult {
 	result := &FileValidationResult{
 		FileName: header.Filename,
 		FileSize: header.Size,
@@ -88,9 +89,9 @@ func (s *Service) VerifyFile(file multipart.File, header *multipart.FileHeader) 
 	return result
 }
 
-func (s *Service) UploadFile(req *UploadRequest) (*models.CreateFileResponse, error) {
+func (s *Service) UploadFile(ctx context.Context, req *UploadRequest) (*models.CreateFileResponse, error) {
 	// Verify file first
-	validation := s.VerifyFile(req.File, req.Header)
+	validation := s.VerifyFile(ctx, req.File, req.Header)
 	if !validation.IsValid {
 		return nil, fmt.Errorf("file validation failed: %s", validation.Error)
 	}
@@ -131,7 +132,7 @@ func (s *Service) UploadFile(req *UploadRequest) (*models.CreateFileResponse, er
 	}
 
 	// Save to database
-	if err := s.repo.CreateWithURL(uploadedFile, urlValue); err != nil {
+	if err := s.repo.CreateWithURL(ctx, uploadedFile, urlValue); err != nil {
 		err := os.Remove(filepath.Join(s.config.UploadDirectory, urlValue))
 		if err != nil {
 			return nil, err
@@ -147,14 +148,14 @@ func (s *Service) UploadFile(req *UploadRequest) (*models.CreateFileResponse, er
 }
 
 // GetFile retrieves file information using the urlvalue
-func (s *Service) GetFile(fileurl string) (*models.UploadedFile, error) {
+func (s *Service) GetFile(ctx context.Context, fileurl string) (*models.UploadedFile, error) {
 
-	file, err := s.repo.GetByURLValue(fileurl)
+	file, err := s.repo.GetByURLValue(ctx, fileurl)
 	if err != nil {
 		return nil, fmt.Errorf("retrieving file: %w", err)
 	}
 
-	if err := s.repo.IncrementAccessCount(file.ID); err != nil {
+	if err := s.repo.IncrementAccessCount(ctx, file.ID); err != nil {
 		// Log but don't fail the request if increment fails
 		log.Printf("Error incrementing access count: %v", err)
 	}
@@ -182,9 +183,9 @@ func (s *Service) saveFile(file multipart.File, filename string) error {
 	return nil
 }
 
-func StartExpiredFilesWorker(svc *Service, interval time.Duration) {
+func StartExpiredFilesWorker(ctx context.Context, svc *Service, interval time.Duration) {
 	// Initial cleanup
-	if err := svc.CleanupOrphanedFiles(); err != nil {
+	if err := svc.CleanupOrphanedFiles(ctx); err != nil {
 		log.Printf("Error cleaning up orphaned files: %v", err)
 	}
 
@@ -192,7 +193,7 @@ func StartExpiredFilesWorker(svc *Service, interval time.Duration) {
 
 	go func() {
 		for range ticker.C {
-			if err := svc.CleanupExpiredFiles(); err != nil {
+			if err := svc.CleanupExpiredFiles(ctx); err != nil {
 				log.Printf("Error cleaning up expired files: %v", err)
 			}
 		}
@@ -209,8 +210,8 @@ func (s *Service) DeleteFile(filename string) error {
 }
 
 // CleanupExpiredFiles retrieves and deletes expired files.
-func (s *Service) CleanupExpiredFiles() error {
-	files, err := s.repo.GetExpiredFiles()
+func (s *Service) CleanupExpiredFiles(ctx context.Context) error {
+	files, err := s.repo.GetExpiredFiles(ctx)
 	if err != nil {
 		return err
 	}
@@ -219,7 +220,7 @@ func (s *Service) CleanupExpiredFiles() error {
 	}
 
 	for _, file := range files {
-		if err := s.repo.Delete(file.ID); err != nil {
+		if err := s.repo.Delete(ctx, file.ID); err != nil {
 			log.Printf("Error deleting file %s from database: %v\n", file.ID, err)
 			continue
 		}
@@ -231,13 +232,13 @@ func (s *Service) CleanupExpiredFiles() error {
 }
 
 // CleanupOrphanedFiles deletes files in the uploadDir that are not in the database.
-func (s *Service) CleanupOrphanedFiles() error {
+func (s *Service) CleanupOrphanedFiles(ctx context.Context) error {
 	filesInDir, err := os.ReadDir(s.config.UploadDirectory)
 	if err != nil {
 		return fmt.Errorf("reading upload directory: %w", err)
 	}
 
-	filesInDB, err := s.repo.GetAllFiles()
+	filesInDB, err := s.repo.GetAllFiles(ctx)
 	if err != nil {
 		return fmt.Errorf("retrieving files from database: %w", err)
 	}

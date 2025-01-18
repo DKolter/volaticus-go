@@ -1,89 +1,75 @@
 package user
 
 import (
-	"fmt"
+	"context"
 	"github.com/google/uuid"
 	"golang.org/x/crypto/bcrypt"
 	"volaticus-go/internal/common/models"
 )
 
-// HashPassword creates a bcrypt hash from a password string
-func HashPassword(password string) (string, error) {
-	bytes, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
+type Service interface {
+	Register(ctx context.Context, req *CreateUserRequest) (*models.User, error)
+	GetByID(ctx context.Context, id uuid.UUID) (*models.User, error)
+	GetByEmail(ctx context.Context, email string) (*models.User, error)
+	GetByUsername(ctx context.Context, username string) (*models.User, error)
+	ValidateCredentials(ctx context.Context, username, password string) (*models.User, error)
+	Delete(ctx context.Context, id uuid.UUID) error
+}
+
+type service struct {
+	repo Repository
+}
+
+func NewService(repo Repository) Service {
+	return &service{repo: repo}
+}
+
+func (s *service) Register(ctx context.Context, req *CreateUserRequest) (*models.User, error) {
+	hash, err := bcrypt.GenerateFromPassword([]byte(req.Password), bcrypt.DefaultCost)
 	if err != nil {
-		return "", err
-	}
-	return string(bytes), nil
-}
-
-// CheckPassword checks if the provided password matches the hash
-func CheckPassword(password, hash string) bool {
-	err := bcrypt.CompareHashAndPassword([]byte(hash), []byte(password))
-	return err == nil
-}
-
-type AuthService interface {
-	GenerateToken(user *models.User) (string, error)
-}
-
-type Service struct {
-	repo UserRepository
-}
-
-func NewService(repo UserRepository) *Service {
-	return &Service{
-		repo: repo,
-	}
-}
-
-// RegisterUser handles the business logic for user registration
-func (s *Service) RegisterUser(req *CreateUserRequest) (*models.User, error) {
-	// Validate input
-	if req.Email == "" || req.Username == "" || req.Password == "" {
-		return nil, ErrInvalidInput
-	}
-
-	// Create user
-	user, err := s.repo.Create(req)
-	if err != nil {
-		return nil, fmt.Errorf("creating user: %w", err)
-	}
-
-	return user, nil
-}
-
-// GetUserByID retrieves a user by their ID
-func (s *Service) GetUserByID(id uuid.UUID) (*models.User, error) {
-	user, err := s.repo.GetByID(id)
-	if err != nil {
-		return nil, fmt.Errorf("getting user: %w", err)
-	}
-	return user, nil
-}
-
-// UpdateUser updates user information
-func (s *Service) UpdateUser(id uuid.UUID, req *UpdateUserRequest) error {
-	return s.repo.Update(id, req)
-}
-
-// DeleteUser deletes a user account
-func (s *Service) DeleteUser(id uuid.UUID) error {
-	return s.repo.Delete(id)
-}
-
-// ValidateCredentials checks if the provided credentials are valid
-func (s *Service) ValidateCredentials(username, password string) (*models.User, error) {
-	user, err := s.repo.GetByUsername(username)
-	if err != nil {
-		if err == ErrUserNotFound {
-			return nil, ErrInvalidCredentials
-		}
 		return nil, err
 	}
 
-	if !CheckPassword(password, user.PasswordHash) {
+	user := &models.User{
+		ID:           uuid.New(),
+		Email:        req.Email,
+		Username:     req.Username,
+		PasswordHash: string(hash),
+		IsActive:     true,
+	}
+
+	if err := s.repo.Create(ctx, user); err != nil {
+		return nil, err
+	}
+
+	return user, nil
+}
+
+func (s *service) GetByID(ctx context.Context, id uuid.UUID) (*models.User, error) {
+	return s.repo.GetByID(ctx, id)
+}
+
+func (s *service) GetByEmail(ctx context.Context, email string) (*models.User, error) {
+	return s.repo.GetByEmail(ctx, email)
+}
+
+func (s *service) GetByUsername(ctx context.Context, username string) (*models.User, error) {
+	return s.repo.GetByUsername(ctx, username)
+}
+
+func (s *service) ValidateCredentials(ctx context.Context, username, password string) (*models.User, error) {
+	user, err := s.repo.GetByUsername(ctx, username)
+	if err != nil {
+		return nil, err
+	}
+
+	if err := bcrypt.CompareHashAndPassword([]byte(user.PasswordHash), []byte(password)); err != nil {
 		return nil, ErrInvalidCredentials
 	}
 
 	return user, nil
+}
+
+func (s *service) Delete(ctx context.Context, id uuid.UUID) error {
+	return s.repo.Delete(ctx, id)
 }

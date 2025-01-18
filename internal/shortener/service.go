@@ -1,6 +1,7 @@
 package shortener
 
 import (
+	"context"
 	"crypto/rand"
 	"fmt"
 	"log"
@@ -34,7 +35,7 @@ func NewService(repo Repository, config *config.Config) *Service {
 }
 
 // CreateShortURL creates a new shortened URL with optional vanity code and expiration
-func (s *Service) CreateShortURL(userID uuid.UUID, req *models.CreateURLRequest) (*models.CreateURLResponse, error) {
+func (s *Service) CreateShortURL(ctx context.Context, userID uuid.UUID, req *models.CreateURLRequest) (*models.CreateURLResponse, error) {
 	// Validate URL
 	if _, err := url.ParseRequestURI(req.URL); err != nil {
 		return nil, fmt.Errorf("invalid URL format: %w", err)
@@ -46,14 +47,14 @@ func (s *Service) CreateShortURL(userID uuid.UUID, req *models.CreateURLRequest)
 
 	// Handle vanity code if provided
 	if req.VanityCode != "" {
-		if err := s.validateVanityCode(req.VanityCode); err != nil {
+		if err := s.validateVanityCode(ctx, req.VanityCode); err != nil {
 			return nil, err
 		}
 		shortCode = req.VanityCode
 		isVanity = true
 	} else {
 		// Generate random code
-		shortCode, err = s.generateUniqueCode()
+		shortCode, err = s.generateUniqueCode(ctx)
 		if err != nil {
 			return nil, err
 		}
@@ -72,7 +73,7 @@ func (s *Service) CreateShortURL(userID uuid.UUID, req *models.CreateURLRequest)
 	}
 
 	// Save URL in database
-	if err := s.repo.Create(shortenedURL); err != nil {
+	if err := s.repo.Create(ctx, shortenedURL); err != nil {
 		return nil, fmt.Errorf("creating shortened URL: %w", err)
 	}
 
@@ -86,9 +87,9 @@ func (s *Service) CreateShortURL(userID uuid.UUID, req *models.CreateURLRequest)
 }
 
 // GetOriginalURL retrieves the original URL and records analytics
-func (s *Service) GetOriginalURL(shortCode string, r *models.RequestInfo) (string, error) {
+func (s *Service) GetOriginalURL(ctx context.Context, shortCode string, r *models.RequestInfo) (string, error) {
 	// Retrieve URL from database
-	shortenedURL, err := s.repo.GetByShortCode(shortCode)
+	shortenedURL, err := s.repo.GetByShortCode(ctx, shortCode)
 	if err != nil {
 		return "", fmt.Errorf("retrieving URL: %w", err)
 	}
@@ -101,8 +102,12 @@ func (s *Service) GetOriginalURL(shortCode string, r *models.RequestInfo) (strin
 	// Get location info from IP
 	location := s.geoIP.GetLocation(r.IPAddress)
 
+	// Create a new context with a timeout for the asynchronous operations
+	asyncCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+
 	// Record analytics asynchronously
 	go func() {
+		defer cancel()
 		analytics := &models.ClickAnalytics{
 			ID:          uuid.New(),
 			URLID:       shortenedURL.ID,
@@ -115,12 +120,12 @@ func (s *Service) GetOriginalURL(shortCode string, r *models.RequestInfo) (strin
 			Region:      location.Region,
 		}
 
-		if err := s.repo.RecordClick(analytics); err != nil {
+		if err := s.repo.RecordClick(asyncCtx, analytics); err != nil {
 			// Log error but don't fail the request
 			log.Printf("Error recording click: %v\n", err)
 		}
 
-		if err := s.repo.IncrementAccessCount(shortenedURL.ID); err != nil {
+		if err := s.repo.IncrementAccessCount(asyncCtx, shortenedURL.ID); err != nil {
 			log.Printf("Error incrementing access count: %v\n", err)
 		}
 	}()
@@ -129,14 +134,14 @@ func (s *Service) GetOriginalURL(shortCode string, r *models.RequestInfo) (strin
 }
 
 // GetUserURLs retrieves all URLs created by a specific user
-func (s *Service) GetUserURLs(userID uuid.UUID) ([]*models.ShortenedURL, error) {
-	return s.repo.GetByUserID(userID)
+func (s *Service) GetUserURLs(ctx context.Context, userID uuid.UUID) ([]*models.ShortenedURL, error) {
+	return s.repo.GetByUserID(ctx, userID)
 }
 
 // GetURLAnalytics retrieves analytics for a specific URL
-func (s *Service) GetURLAnalytics(urlID uuid.UUID, userID uuid.UUID) (*models.URLAnalytics, error) {
+func (s *Service) GetURLAnalytics(ctx context.Context, urlID uuid.UUID, userID uuid.UUID) (*models.URLAnalytics, error) {
 	// First verify the user owns this URL
-	urls, err := s.repo.GetByUserID(userID)
+	urls, err := s.repo.GetByUserID(ctx, userID)
 	if err != nil {
 		return nil, err
 	}
@@ -153,13 +158,13 @@ func (s *Service) GetURLAnalytics(urlID uuid.UUID, userID uuid.UUID) (*models.UR
 		return nil, fmt.Errorf("unauthorized access to URL analytics")
 	}
 
-	return s.repo.GetURLAnalytics(urlID)
+	return s.repo.GetURLAnalytics(ctx, urlID)
 }
 
 // DeleteURL soft deletes a URL
-func (s *Service) DeleteURL(urlID uuid.UUID, userID uuid.UUID) error {
+func (s *Service) DeleteURL(ctx context.Context, urlID uuid.UUID, userID uuid.UUID) error {
 	// Verify ownership
-	urls, err := s.repo.GetByUserID(userID)
+	urls, err := s.repo.GetByUserID(ctx, userID)
 	if err != nil {
 		return err
 	}
@@ -176,13 +181,13 @@ func (s *Service) DeleteURL(urlID uuid.UUID, userID uuid.UUID) error {
 		return fmt.Errorf("unauthorized access to URL")
 	}
 
-	return s.repo.Delete(urlID)
+	return s.repo.Delete(ctx, urlID)
 }
 
 // DeleteURLByShortCode deletes a URL by its short code
-func (s *Service) DeleteURLByShortCode(shortCode string, userID uuid.UUID) error {
+func (s *Service) DeleteURLByShortCode(ctx context.Context, shortCode string, userID uuid.UUID) error {
 	// Retrieve the URL by short code
-	shortenedURL, err := s.repo.GetByShortCode(shortCode)
+	shortenedURL, err := s.repo.GetByShortCode(ctx, shortCode)
 	if err != nil {
 		return fmt.Errorf("retrieving URL: %w", err)
 	}
@@ -193,7 +198,7 @@ func (s *Service) DeleteURLByShortCode(shortCode string, userID uuid.UUID) error
 	}
 
 	// Delete the URL
-	if err := s.repo.Delete(shortenedURL.ID); err != nil {
+	if err := s.repo.Delete(ctx, shortenedURL.ID); err != nil {
 		return fmt.Errorf("deleting URL: %w", err)
 	}
 
@@ -201,9 +206,9 @@ func (s *Service) DeleteURLByShortCode(shortCode string, userID uuid.UUID) error
 }
 
 // UpdateURLExpiration updates the expiration date of a URL
-func (s *Service) UpdateURLExpiration(urlID uuid.UUID, userID uuid.UUID, expiresAt *time.Time) error {
+func (s *Service) UpdateURLExpiration(ctx context.Context, urlID uuid.UUID, userID uuid.UUID, expiresAt *time.Time) error {
 	// Verify ownership
-	urls, err := s.repo.GetByUserID(userID)
+	urls, err := s.repo.GetByUserID(ctx, userID)
 	if err != nil {
 		return err
 	}
@@ -221,19 +226,19 @@ func (s *Service) UpdateURLExpiration(urlID uuid.UUID, userID uuid.UUID, expires
 	}
 
 	targetURL.ExpiresAt = expiresAt
-	return s.repo.Update(targetURL)
+	return s.repo.Update(ctx, targetURL)
 }
 
 // CleanupExpiredURLs deactivates expired URLs
-func (s *Service) CleanupExpiredURLs() error {
-	urls, err := s.repo.GetURLsByExpiration(time.Now())
+func (s *Service) CleanupExpiredURLs(ctx context.Context) error {
+	urls, err := s.repo.GetURLsByExpiration(ctx, time.Now())
 	if err != nil {
 		return err
 	}
 
 	for _, url := range urls {
 		url.IsActive = false
-		if err := s.repo.Update(url); err != nil {
+		if err := s.repo.Update(ctx, url); err != nil {
 			log.Printf("Error deactivating URL %s: %v\n", url.ShortCode, err)
 		}
 	}
@@ -243,15 +248,15 @@ func (s *Service) CleanupExpiredURLs() error {
 
 // Helper functions
 
-func (s *Service) generateUniqueCode() (string, error) {
+func (s *Service) generateUniqueCode(ctx context.Context) (string, error) {
 	for attempts := 0; attempts < 5; attempts++ {
-		code, err := s.generateCode()
+		code, err := s.generateCode(ctx)
 		if err != nil {
 			continue
 		}
 
 		// Check if code already exists
-		_, err = s.repo.GetByShortCode(code)
+		_, err = s.repo.GetByShortCode(ctx, code)
 		if err != nil {
 			// If Error "not found", then code is unique
 			return code, nil
@@ -261,7 +266,7 @@ func (s *Service) generateUniqueCode() (string, error) {
 	return "", fmt.Errorf("could not generate unique code after 5 attempts")
 }
 
-func (s *Service) generateCode() (string, error) {
+func (s *Service) generateCode(ctx context.Context) (string, error) {
 	length := len(alphabet)
 	code := make([]byte, codeLength)
 
@@ -276,7 +281,7 @@ func (s *Service) generateCode() (string, error) {
 	return string(code), nil
 }
 
-func (s *Service) validateVanityCode(code string) error {
+func (s *Service) validateVanityCode(ctx context.Context, code string) error {
 	if len(code) < 4 || len(code) > 30 {
 		return fmt.Errorf("vanity code must be between 4 and 30 characters")
 	}
@@ -291,7 +296,7 @@ func (s *Service) validateVanityCode(code string) error {
 	}
 
 	// Check if code already exists
-	_, err = s.repo.GetByShortCode(code)
+	_, err = s.repo.GetByShortCode(ctx, code)
 	if err == nil {
 		return fmt.Errorf("vanity code already in use")
 	}
