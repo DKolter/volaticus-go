@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"volaticus-go/internal/context"
 	"volaticus-go/internal/user"
+	"volaticus-go/internal/validation"
 
 	"github.com/go-chi/chi/v5"
 )
@@ -45,6 +46,13 @@ func (h *Handler) GenerateToken(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Unauthorized", http.StatusUnauthorized)
 		return
 	}
+
+	if err := validation.Validate(&req); err != nil {
+		errors := validation.FormatError(err)
+		http.Error(w, errors[0].Error, http.StatusBadRequest)
+		return
+	}
+
 	token, err := h.authService.GenerateAPIToken(r.Context(), user.ID, req.Name)
 	if err != nil {
 		log.Printf("Error generating API token: %v", err)

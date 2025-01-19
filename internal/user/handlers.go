@@ -6,6 +6,7 @@ import (
 	"log"
 	"net/http"
 	"volaticus-go/internal/common/models"
+	"volaticus-go/internal/validation"
 )
 
 // AuthService defines the interface for authentication services.
@@ -41,10 +42,21 @@ type UpdateUserRequest struct {
 	IsActive *bool   `json:"is_active"`
 }
 
+type LoginRequest struct {
+	Username string `json:"username" validate:"required,username"`
+	Password string `json:"password" validate:"required,min=1"`
+}
+
 func (h *Handler) HandleRegister(w http.ResponseWriter, r *http.Request) {
 	var req CreateUserRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		http.Error(w, "Invalid request body", http.StatusBadRequest)
+		return
+	}
+
+	if err := validation.Validate(&req); err != nil {
+		errs := validation.FormatError(err)
+		http.Error(w, errs[0].Error, http.StatusBadRequest)
 		return
 	}
 
@@ -91,13 +103,15 @@ func (h *Handler) HandleRegister(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) HandleLogin(w http.ResponseWriter, r *http.Request) {
-	var req struct {
-		Username string `json:"username"`
-		Password string `json:"password"`
-	}
+	var req LoginRequest
 
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		http.Error(w, "Invalid request body", http.StatusBadRequest)
+		return
+	}
+	if err := validation.Validate(&req); err != nil {
+		errs := validation.FormatError(err)
+		http.Error(w, errs[0].Error, http.StatusBadRequest)
 		return
 	}
 

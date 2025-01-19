@@ -123,7 +123,7 @@ type RequestInfo struct {
 // CreateURLRequest represents the request to create a shortened URL
 type CreateURLRequest struct {
 	URL        string     `json:"url" validate:"required,url"`
-	VanityCode string     `json:"vanity_code,omitempty"`
+	VanityCode string     `json:"vanity_code,omitempty" validate:"omitempty,vanitycode"`
 	ExpiresAt  *time.Time `json:"expires_at,omitempty"`
 }
 

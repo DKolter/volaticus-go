@@ -12,6 +12,7 @@ import (
 	"volaticus-go/cmd/web/pages"
 	"volaticus-go/internal/common/models"
 	"volaticus-go/internal/context"
+	"volaticus-go/internal/validation"
 )
 
 type Handler struct {
@@ -31,6 +32,16 @@ func (h *Handler) HandleCreateShortURL(w http.ResponseWriter, r *http.Request) {
 		HandleError(w, &APIError{
 			Code:    ErrCodeInvalidInput,
 			Message: "Invalid request body",
+		}, http.StatusBadRequest)
+		return
+	}
+
+	if err := validation.Validate(&req); err != nil {
+		errors := validation.FormatError(err)
+		HandleError(w, &APIError{
+			Code:    ErrCodeInvalidInput,
+			Message: "Validation failed",
+			Details: errors[0].Error, // Use first error message
 		}, http.StatusBadRequest)
 		return
 	}
