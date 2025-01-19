@@ -77,10 +77,11 @@ type LoginResponse struct {
 func (s *authService) GenerateAPIToken(ctx context.Context, userID uuid.UUID, name string) (*models.APIToken, error) {
 	var token string
 	var exists bool
+	var err error
 
 	for attempts := 0; attempts < 3; attempts++ {
 		tokenBytes := make([]byte, 32)
-		if _, err := rand.Read(tokenBytes); err != nil {
+		if _, err = rand.Read(tokenBytes); err != nil {
 			return nil, fmt.Errorf("failed to generate random bytes: %w", err)
 		}
 
@@ -91,7 +92,7 @@ func (s *authService) GenerateAPIToken(ctx context.Context, userID uuid.UUID, na
 		finalBytes := append(tokenBytes, hmacBytes...)
 		token = base64.URLEncoding.EncodeToString(finalBytes)
 
-		exists, err := s.repo.TokenExists(ctx, token)
+		exists, err = s.repo.TokenExists(ctx, token)
 		if err != nil {
 			return nil, fmt.Errorf("failed to check token existence: %w", err)
 		}
@@ -101,7 +102,7 @@ func (s *authService) GenerateAPIToken(ctx context.Context, userID uuid.UUID, na
 		}
 	}
 
-	if exists { // TODO: fix this
+	if exists {
 		return nil, errors.New("failed to generate unique token after 3 attempts")
 	}
 
@@ -120,7 +121,7 @@ func (s *authService) GenerateAPIToken(ctx context.Context, userID uuid.UUID, na
 		apiToken.CreatedAt.Format(time.RFC3339),
 		apiToken.IsActive,
 	)
-	err := s.repo.CreateToken(ctx, apiToken)
+	err = s.repo.CreateToken(ctx, apiToken)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create token: %s", err.Error())
 	}

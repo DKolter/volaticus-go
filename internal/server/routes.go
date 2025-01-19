@@ -40,6 +40,9 @@ func (s *Server) RegisterRoutes() http.Handler {
 	fileServer := http.FileServer(http.FS(web.Files)) // embedded in binary
 	r.Handle("/assets/*", fileServer)
 
+	// Error 404 handler
+	r.NotFound(s.handleError404)
+
 	// Public routes
 	r.Group(func(r chi.Router) {
 		// Login & register functionality

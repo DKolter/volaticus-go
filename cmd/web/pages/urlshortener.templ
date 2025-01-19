@@ -263,7 +263,7 @@ templ ShortenedURLResult(response *models.CreateURLResponse) {
 				/>
 			</label>
 			<button
-				onclick="navigator.clipboard.writeText('{response.ShortURL}')"
+				onclick={ copyToClipboard(response.ShortCode) }
 				class="rounded-md bg-indigo-500 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-indigo-400"
 			>
 				Copy

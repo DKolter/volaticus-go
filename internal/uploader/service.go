@@ -185,6 +185,9 @@ func (s *Service) saveFile(file multipart.File, filename string) error {
 
 func StartExpiredFilesWorker(ctx context.Context, svc *Service, interval time.Duration) {
 	// Initial cleanup
+	if err := svc.CleanupExpiredFiles(ctx); err != nil {
+		log.Printf("Error cleaning up expired files: %v", err)
+	}
 	if err := svc.CleanupOrphanedFiles(ctx); err != nil {
 		log.Printf("Error cleaning up orphaned files: %v", err)
 	}

@@ -1,0 +1,83 @@
+package pages
+
+templ ErrorLayout() {
+    @Base() {
+        <div class="min-h-screen bg-gray-900 px-4 py-16 sm:px-6 sm:py-24 md:grid md:place-items-center lg:px-8">
+            <div class="mx-auto max-w-max">
+                { children... }
+            </div>
+        </div>
+    }
+}
+
+templ Error404() {
+    @ErrorLayout() {
+        <main class="sm:flex">
+            <p class="text-4xl font-bold tracking-tight text-indigo-600 sm:text-5xl">404</p>
+            <div class="sm:ml-6">
+                <div class="sm:border-l sm:border-gray-700 sm:pl-6">
+                    <h1 class="text-4xl font-bold tracking-tight text-white sm:text-5xl">Page not found</h1>
+                    <p class="mt-4 text-base text-gray-400">Sorry, we couldn't find the page you're looking for.</p>
+                </div>
+                <div class="mt-8 flex space-x-3 sm:border-l sm:border-transparent sm:pl-6">
+                    <a
+                        href="/"
+                        class="inline-flex items-center rounded-md bg-indigo-500 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-indigo-400 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-500"
+                    >
+                        Go back home
+                    </a>
+                </div>
+            </div>
+        </main>
+    }
+}
+
+templ Error401() {
+    @ErrorLayout() {
+        <main class="sm:flex">
+            <p class="text-4xl font-bold tracking-tight text-indigo-600 sm:text-5xl">401</p>
+            <div class="sm:ml-6">
+                <div class="sm:border-l sm:border-gray-700 sm:pl-6">
+                    <h1 class="text-4xl font-bold tracking-tight text-white sm:text-5xl">Unauthorized</h1>
+                    <p class="mt-4 text-base text-gray-400">You need to be logged in to access this page.</p>
+                </div>
+                <div class="mt-8 flex space-x-3 sm:border-l sm:border-transparent sm:pl-6">
+                    <a
+                        href="/login"
+                        class="inline-flex items-center rounded-md bg-indigo-500 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-indigo-400 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-500"
+                    >
+                        Log in
+                    </a>
+                    <a
+                        href="/register"
+                        class="inline-flex items-center rounded-md bg-white/10 px-4 py-2 text-sm font-semibold text-white hover:bg-white/20"
+                    >
+                        Register
+                    </a>
+                </div>
+            </div>
+        </main>
+    }
+}
+
+templ Error403() {
+    @ErrorLayout() {
+        <main class="sm:flex">
+            <p class="text-4xl font-bold tracking-tight text-indigo-600 sm:text-5xl">403</p>
+            <div class="sm:ml-6">
+                <div class="sm:border-l sm:border-gray-700 sm:pl-6">
+                    <h1 class="text-4xl font-bold tracking-tight text-white sm:text-5xl">Access denied</h1>
+                    <p class="mt-4 text-base text-gray-400">Sorry, you don't have permission to access this page.</p>
+                </div>
+                <div class="mt-8 flex space-x-3 sm:border-l sm:border-transparent sm:pl-6">
+                    <a
+                        href="/"
+                        class="inline-flex items-center rounded-md bg-indigo-500 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-indigo-400 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-500"
+                    >
+                        Go back home
+                    </a>
+                </div>
+            </div>
+        </main>
+    }
+}

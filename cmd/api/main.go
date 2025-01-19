@@ -98,7 +98,7 @@ func main() {
 	}()
 
 	// Start the server
-	log.Printf("Server is ready to handle requests at : %s:%d", cfg.BaseURL, cfg.Port)
+	log.Printf("Server is ready to handle requests at : %s", cfg.BaseURL)
 	if err := httpServer.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
 		log.Printf("HTTP server error: %v", err)
 	}
