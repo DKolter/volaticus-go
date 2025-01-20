@@ -1,7 +1,9 @@
 package uploader
 
 import (
+	"context"
 	"fmt"
+	"github.com/google/uuid"
 	"io"
 	"log"
 	"mime/multipart"
@@ -10,33 +12,25 @@ import (
 	"path/filepath"
 	"strings"
 	"time"
-	"volaticus-go/internal/models"
-
-	"github.com/google/uuid"
-)
-
-const (
-	// TODO: Move to config
-	uploadDir = "./uploads"
-	maxSize   = 100 << 20 // 100MB
-	expiresIn = 24 * time.Hour
+	"volaticus-go/internal/common/models"
+	"volaticus-go/internal/config"
 )
 
 type Service struct {
 	repo         Repository
-	baseURL      string
+	config       config.Config
 	urlGenerator *URLGenerator
 }
 
-func NewService(repo Repository, baseURL string) *Service {
+func NewService(repo Repository, config *config.Config) *Service {
 	// Make sure that directory exists
-	if err := os.MkdirAll(uploadDir, 0755); err != nil {
+	if err := os.MkdirAll(config.UploadDirectory, 0755); err != nil {
 		log.Fatalf("Failed to create upload directory: %v", err)
 	}
 
 	return &Service{
 		repo:         repo,
-		baseURL:      baseURL,
+		config:       *config,
 		urlGenerator: NewURLGenerator(),
 	}
 }
@@ -49,7 +43,7 @@ type UploadRequest struct {
 	UserID  uuid.UUID
 }
 
-// FileValidationResult contains validation results
+// FileValidationResult contains validation results TODO: json tags
 type FileValidationResult struct {
 	IsValid     bool
 	FileName    string
@@ -59,14 +53,14 @@ type FileValidationResult struct {
 }
 
 // VerifyFile checks if the file meets upload requirements
-func (s *Service) VerifyFile(file multipart.File, header *multipart.FileHeader) *FileValidationResult {
+func (s *Service) VerifyFile(ctx context.Context, file multipart.File, header *multipart.FileHeader) *FileValidationResult {
 	result := &FileValidationResult{
 		FileName: header.Filename,
 		FileSize: header.Size,
 	}
 
 	// Check file size
-	if header.Size > maxSize {
+	if header.Size > s.config.MaxUploadSize {
 		result.Error = "File too large (max 100MB)"
 		return result
 	}
@@ -88,38 +82,16 @@ func (s *Service) VerifyFile(file multipart.File, header *multipart.FileHeader) 
 	contentType := http.DetectContentType(buff)
 	result.ContentType = contentType
 
-	// List of allowed MIME types
-	// TODO: Move to config
-	allowedTypes := map[string]bool{
-		"image/jpeg":         true,
-		"image/png":          true,
-		"image/gif":          true,
-		"application/pdf":    true,
-		"text/plain":         true,
-		"application/msword": true,
-		"application/vnd.openxmlformats-officedocument.wordprocessingml.document": true,
-		"video/mp4":                    true,
-		"video/webm":                   true,
-		"audio/mpeg":                   true,
-		"audio/wav":                    true,
-		"audio/x-wav":                  true,
-		"audio/webm":                   true,
-		"application/zip":              true,
-		"application/x-zip-compressed": true,
-	}
-
-	if !allowedTypes[contentType] {
-		result.Error = fmt.Sprintf("File type %s not allowed", contentType)
-		return result
-	}
+	// Here we could add more checks like file type, etc.
+	// and allow/deny based on that, for example only allow images, textfiles, etc.
 
 	result.IsValid = true
 	return result
 }
 
-func (s *Service) UploadFile(req *UploadRequest) (*models.CreateFileResponse, error) {
+func (s *Service) UploadFile(ctx context.Context, req *UploadRequest) (*models.CreateFileResponse, error) {
 	// Verify file first
-	validation := s.VerifyFile(req.File, req.Header)
+	validation := s.VerifyFile(ctx, req.File, req.Header)
 	if !validation.IsValid {
 		return nil, fmt.Errorf("file validation failed: %s", validation.Error)
 	}
@@ -138,10 +110,10 @@ func (s *Service) UploadFile(req *UploadRequest) (*models.CreateFileResponse, er
 	}
 
 	unixTimestamp := uint64(time.Now().UnixNano())
-	unixFilename := fmt.Sprintf("%d%s", unixTimestamp, ext)
+	uniqueFilename := fmt.Sprintf("%d%s", unixTimestamp, ext)
 
 	// Create physical file
-	if err := s.saveFile(req.File, unixFilename); err != nil {
+	if err := s.saveFile(req.File, uniqueFilename); err != nil {
 		return nil, fmt.Errorf("saving file: %w", err)
 	}
 
@@ -149,38 +121,41 @@ func (s *Service) UploadFile(req *UploadRequest) (*models.CreateFileResponse, er
 	uploadedFile := &models.UploadedFile{
 		ID:             uuid.New(),
 		OriginalName:   req.Header.Filename,
-		UniqueFilename: unixFilename,
+		UniqueFilename: uniqueFilename,
 		MimeType:       validation.ContentType,
 		FileSize:       uint64(req.Header.Size),
 		UserID:         req.UserID,
 		CreatedAt:      time.Now(),
 		AccessCount:    0,
-		ExpiredAt:      time.Now().Add(expiresIn),
+		ExpiresAt:      time.Now().Add(time.Duration(s.config.UploadExpiresIn) * time.Hour),
 		URLValue:       urlValue,
 	}
 
 	// Save to database
-	if err := s.repo.CreateWithURL(uploadedFile, urlValue); err != nil {
-		os.Remove(filepath.Join(uploadDir, urlValue))
+	if err := s.repo.CreateWithURL(ctx, uploadedFile, urlValue); err != nil {
+		err := os.Remove(filepath.Join(s.config.UploadDirectory, urlValue))
+		if err != nil {
+			return nil, err
+		}
 		return nil, fmt.Errorf("saving to database: %w", err)
 	}
 
 	return &models.CreateFileResponse{
-		FileUrl:      fmt.Sprintf("%s/f/%s", s.baseURL, urlValue),
+		FileUrl:      fmt.Sprintf("%s/f/%s", s.config.BaseURL, urlValue),
 		OriginalName: req.Header.Filename,
 		UnixFilename: urlValue,
 	}, nil
 }
 
 // GetFile retrieves file information using the urlvalue
-func (s *Service) GetFile(fileurl string) (*models.UploadedFile, error) {
+func (s *Service) GetFile(ctx context.Context, fileurl string) (*models.UploadedFile, error) {
 
-	file, err := s.repo.GetByURLValue(fileurl)
+	file, err := s.repo.GetByURLValue(ctx, fileurl)
 	if err != nil {
 		return nil, fmt.Errorf("retrieving file: %w", err)
 	}
 
-	if err := s.repo.IncrementAccessCount(file.ID); err != nil {
+	if err := s.repo.IncrementAccessCount(ctx, file.ID); err != nil {
 		// Log but don't fail the request if increment fails
 		log.Printf("Error incrementing access count: %v", err)
 	}
@@ -190,11 +165,16 @@ func (s *Service) GetFile(fileurl string) (*models.UploadedFile, error) {
 
 // saveFile saves the uploaded file to disk
 func (s *Service) saveFile(file multipart.File, filename string) error {
-	dst, err := os.Create(filepath.Join(uploadDir, filename))
+	dst, err := os.Create(filepath.Join(s.config.UploadDirectory, filename))
 	if err != nil {
 		return fmt.Errorf("creating file: %w", err)
 	}
-	defer dst.Close()
+	defer func(dst *os.File) {
+		err := dst.Close()
+		if err != nil {
+			log.Printf("Error closing file: %v", err)
+		}
+	}(dst)
 
 	if _, err := io.Copy(dst, file); err != nil {
 		return fmt.Errorf("writing file: %w", err)
@@ -203,9 +183,12 @@ func (s *Service) saveFile(file multipart.File, filename string) error {
 	return nil
 }
 
-func StartExpiredFilesWorker(svc *Service, interval time.Duration) {
+func StartExpiredFilesWorker(ctx context.Context, svc *Service, interval time.Duration) {
 	// Initial cleanup
-	if err := svc.CleanupOrphanedFiles(); err != nil {
+	if err := svc.CleanupExpiredFiles(ctx); err != nil {
+		log.Printf("Error cleaning up expired files: %v", err)
+	}
+	if err := svc.CleanupOrphanedFiles(ctx); err != nil {
 		log.Printf("Error cleaning up orphaned files: %v", err)
 	}
 
@@ -213,7 +196,7 @@ func StartExpiredFilesWorker(svc *Service, interval time.Duration) {
 
 	go func() {
 		for range ticker.C {
-			if err := svc.CleanupExpiredFiles(); err != nil {
+			if err := svc.CleanupExpiredFiles(ctx); err != nil {
 				log.Printf("Error cleaning up expired files: %v", err)
 			}
 		}
@@ -222,7 +205,7 @@ func StartExpiredFilesWorker(svc *Service, interval time.Duration) {
 
 // DeleteFile deletes the physical file from the disk
 func (s *Service) DeleteFile(filename string) error {
-	filePath := filepath.Join(uploadDir, filename)
+	filePath := filepath.Join(s.config.UploadDirectory, filename)
 	if err := os.Remove(filePath); err != nil {
 		return fmt.Errorf("deleting file: %w", err)
 	}
@@ -230,14 +213,17 @@ func (s *Service) DeleteFile(filename string) error {
 }
 
 // CleanupExpiredFiles retrieves and deletes expired files.
-func (s *Service) CleanupExpiredFiles() error {
-	files, err := s.repo.GetExpiredFiles()
-	log.Printf("Found %d expired files\n", len(files))
+func (s *Service) CleanupExpiredFiles(ctx context.Context) error {
+	files, err := s.repo.GetExpiredFiles(ctx)
 	if err != nil {
 		return err
 	}
+	if len(files) > 0 {
+		log.Printf("Found %d expired files\n", len(files))
+	}
+
 	for _, file := range files {
-		if err := s.repo.Delete(file.ID); err != nil {
+		if err := s.repo.Delete(ctx, file.ID); err != nil {
 			log.Printf("Error deleting file %s from database: %v\n", file.ID, err)
 			continue
 		}
@@ -249,13 +235,13 @@ func (s *Service) CleanupExpiredFiles() error {
 }
 
 // CleanupOrphanedFiles deletes files in the uploadDir that are not in the database.
-func (s *Service) CleanupOrphanedFiles() error {
-	filesInDir, err := os.ReadDir(uploadDir)
+func (s *Service) CleanupOrphanedFiles(ctx context.Context) error {
+	filesInDir, err := os.ReadDir(s.config.UploadDirectory)
 	if err != nil {
 		return fmt.Errorf("reading upload directory: %w", err)
 	}
 
-	filesInDB, err := s.repo.GetAllFiles()
+	filesInDB, err := s.repo.GetAllFiles(ctx)
 	if err != nil {
 		return fmt.Errorf("retrieving files from database: %w", err)
 	}
@@ -274,7 +260,9 @@ func (s *Service) CleanupOrphanedFiles() error {
 			}
 		}
 	}
-	log.Printf("Deleted %d orphaned files", deletedCount)
+	if deletedCount > 0 {
+		log.Printf("Deleted %d orphaned files", deletedCount)
+	}
 
 	return nil
 }

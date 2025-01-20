@@ -1,44 +1,53 @@
 package auth
 
 import (
+	"context"
 	"crypto/hmac"
 	"crypto/rand"
 	"crypto/sha256"
 	"encoding/base64"
 	"errors"
 	"fmt"
-	"log"
-	"time"
-	"volaticus-go/internal/user"
-
 	"github.com/go-chi/jwtauth/v5"
 	"github.com/google/uuid"
+	"log"
+	"time"
+	"volaticus-go/internal/common/models"
 )
 
-type Service struct {
+type Service interface {
+	GetAuth() *jwtauth.JWTAuth
+	GenerateToken(user *models.User) (string, error)
+	GenerateAPIToken(ctx context.Context, userID uuid.UUID, name string) (*models.APIToken, error)
+	ValidateAPIToken(ctx context.Context, token string) (*models.APIToken, error)
+	DeleteTokenByUserIdAndToken(ctx context.Context, userID uuid.UUID, token string) error
+	GetUserAPITokens(ctx context.Context, userID uuid.UUID) ([]*models.APIToken, error)
+}
+type authService struct {
 	tokenAuth *jwtauth.JWTAuth
-	repo      TokenRepository
-	secretKey []byte // used for APIToken generation
+	repo      Repository
+	secretKey []byte
 }
 
-const TokenExpiry = time.Hour * 24 // 24 hours TODO: get from config
+const TokenExpiry = time.Hour * 24 // 24 hours TODO: implement refresh tokens
 
 // NewService creates a new auth service
-func NewService(secretKey string, repo TokenRepository) *Service {
+func NewService(secretKey string, repo Repository) Service {
 	tokenAuth := jwtauth.New("HS256", []byte(secretKey), nil)
-	return &Service{
+	return &authService{
 		tokenAuth: tokenAuth,
 		repo:      repo,
+		secretKey: []byte(secretKey),
 	}
 }
 
 // GetAuth returns the JWTAuth instance for middleware
-func (s *Service) GetAuth() *jwtauth.JWTAuth {
+func (s *authService) GetAuth() *jwtauth.JWTAuth {
 	return s.tokenAuth
 }
 
 // GenerateToken creates a new JWT token for a user
-func (s *Service) GenerateToken(user *user.User) (string, error) {
+func (s *authService) GenerateToken(user *models.User) (string, error) {
 	claims := map[string]interface{}{
 		"user_id":  user.ID.String(),
 		"username": user.Username,
@@ -65,29 +74,25 @@ type LoginResponse struct {
 	User  interface{} `json:"user"`
 }
 
-func (s *Service) GenerateAPIToken(userID uuid.UUID, name string) (*APIToken, error) {
+func (s *authService) GenerateAPIToken(ctx context.Context, userID uuid.UUID, name string) (*models.APIToken, error) {
 	var token string
 	var exists bool
+	var err error
 
-	// Try generating unique token up to 3 times
 	for attempts := 0; attempts < 3; attempts++ {
-		// Generate random bytes
 		tokenBytes := make([]byte, 32)
-		if _, err := rand.Read(tokenBytes); err != nil {
+		if _, err = rand.Read(tokenBytes); err != nil {
 			return nil, fmt.Errorf("failed to generate random bytes: %w", err)
 		}
 
-		// Create HMAC of random bytes using secret
 		h := hmac.New(sha256.New, s.secretKey)
 		h.Write(tokenBytes)
 		hmacBytes := h.Sum(nil)
 
-		// Combine random bytes and HMAC
 		finalBytes := append(tokenBytes, hmacBytes...)
 		token = base64.URLEncoding.EncodeToString(finalBytes)
 
-		// Check if token already exists
-		exists, err := s.repo.TokenExists(token)
+		exists, err = s.repo.TokenExists(ctx, token)
 		if err != nil {
 			return nil, fmt.Errorf("failed to check token existence: %w", err)
 		}
@@ -101,7 +106,7 @@ func (s *Service) GenerateAPIToken(userID uuid.UUID, name string) (*APIToken, er
 		return nil, errors.New("failed to generate unique token after 3 attempts")
 	}
 
-	apiToken := &APIToken{
+	apiToken := &models.APIToken{
 		ID:        uuid.New(),
 		UserID:    userID,
 		Name:      name,
@@ -116,7 +121,7 @@ func (s *Service) GenerateAPIToken(userID uuid.UUID, name string) (*APIToken, er
 		apiToken.CreatedAt.Format(time.RFC3339),
 		apiToken.IsActive,
 	)
-	err := s.repo.CreateToken(apiToken)
+	err = s.repo.CreateToken(ctx, apiToken)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create token: %s", err.Error())
 	}
@@ -124,8 +129,8 @@ func (s *Service) GenerateAPIToken(userID uuid.UUID, name string) (*APIToken, er
 	return apiToken, nil
 }
 
-func (s *Service) ValidateAPIToken(token string) (*APIToken, error) {
-	apiToken, err := s.repo.GetAPITokenByToken(token)
+func (s *authService) ValidateAPIToken(ctx context.Context, token string) (*models.APIToken, error) {
+	apiToken, err := s.repo.GetAPITokenByToken(ctx, token)
 	if err != nil {
 		return nil, err
 	}
@@ -141,10 +146,14 @@ func (s *Service) ValidateAPIToken(token string) (*APIToken, error) {
 	return apiToken, nil
 }
 
-func (s *Service) GetUserAPITokens(userid uuid.UUID) ([]*APIToken, error) {
-	tokens, err := s.repo.ListUserTokens(userid)
+func (s *authService) GetUserAPITokens(ctx context.Context, userID uuid.UUID) ([]*models.APIToken, error) {
+	tokens, err := s.repo.ListUserTokens(ctx, userID)
 	if err != nil {
 		return nil, err
 	}
 	return tokens, nil
+}
+
+func (s *authService) DeleteTokenByUserIdAndToken(ctx context.Context, userID uuid.UUID, token string) error {
+	return s.repo.DeleteTokenByUserIdAndToken(ctx, userID, token)
 }

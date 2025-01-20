@@ -1,39 +1,28 @@
 package server
 
 import (
-	"fmt"
-	"net/http"
-	"volaticus-go/cmd/web"
-	"volaticus-go/cmd/web/handlers"
-	"volaticus-go/internal/shortener"
-
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
 	"github.com/go-chi/cors"
 	"github.com/go-chi/jwtauth/v5"
-)
-
-// TODO: Move this into config / get from env variables
-const (
-	MaxFileSize = 100 << 20 // 100 MB
-	UploadDir   = "./tmp"
+	"net/http"
+	"volaticus-go/cmd/web"
 )
 
 func (s *Server) RegisterRoutes() http.Handler {
-
 	r := chi.NewRouter()
 	r.Use(middleware.Logger)
 	r.Use(middleware.Recoverer)
 
 	// JWT authentication middleware
 	// Get the JWT auth instance
-	tokenAuth := s.authService.GetAuth()
+	tokenAuth := (*s.authService).GetAuth()
 
 	// Add JWT verification middleware
 	r.Use(jwtauth.Verifier(tokenAuth))
 	r.Use(s.AuthMiddleware(tokenAuth))
 
-	if s.config.Env == "development" {
+	if s.config.Env == "dev" || s.config.Env == "development" {
 		r.Use(middleware.NoCache)
 	}
 
@@ -51,64 +40,65 @@ func (s *Server) RegisterRoutes() http.Handler {
 	fileServer := http.FileServer(http.FS(web.Files)) // embedded in binary
 	r.Handle("/assets/*", fileServer)
 
+	// Error 404 handler
+	r.NotFound(s.handleError404)
+
 	// Public routes
 	r.Group(func(r chi.Router) {
+		// Login & register functionality
 		r.Get("/login", s.handleLogin)
-		r.Post("/login", s.authHandler.HandleLogin)
+		r.Post("/login", s.userHandler.HandleLogin)
 		r.Get("/register", s.handleRegister)
 		r.Post("/register", s.userHandler.HandleRegister)
+
+		// Health check
 		r.Get("/health", s.healthHandler)
+
+		// File serving and short URL redirection
 		r.Get("/f/{fileUrl}", s.fileHandler.HandleServeFile)
+		r.Get("/s/{shortCode}", s.shortenerHandler.HandleRedirect)
 	})
 
 	// Protected routes
 	r.Group(func(r chi.Router) {
-		// Pages
-		r.Get("/", s.handleHome)
-		r.Get("/url-short", s.handleUrlShort)
-		r.Get("/upload", s.handleUpload)
-		r.Post("/upload/verify", s.fileHandler.HandleVerifyFile)
-		r.Post("/upload", s.fileHandler.HandleUpload)
-		r.Get("/files", s.handleFiles)
-		r.Get("/settings", s.handleSettings)
-		r.Get("/settings/token-modal", s.showTokenModal)
-		r.Post("/settings/token-modal", s.authHandler.GenerateToken)
-		r.Delete("/settings/token/{token}", s.authHandler.DeleteToken)
-	})
+		r.Use(jwtauth.Authenticator(tokenAuth)) // Require authentication
 
-	// API routes
-	r.Group(func(r chi.Router) {
-		// API versioning
-		r.Route("/v1", func(r chi.Router) {
-			// TODO: add middleware to application token / auth middleware
-			// r.Post("/upload", s.handleFileUpload)
+		// Main pages
+		r.Get("/", s.handleHome)
+		r.Get("/files", s.handleFiles)
+
+		// Logout
+		r.Get("/logout", s.userHandler.HandleLogout)
+
+		// Upload routes
+		r.Route("/upload", func(r chi.Router) {
+			r.Get("/", s.handleUpload)
+			r.Post("/", s.fileHandler.HandleUpload)
+			r.Post("/verify", s.fileHandler.HandleVerifyFile)
+		})
+
+		// Settings routes
+		r.Route("/settings", func(r chi.Router) {
+			r.Get("/", s.handleSettings)
+			r.Get("/token-modal", s.showTokenModal)
+			r.Post("/token-modal", s.authHandler.GenerateToken)
+			r.Delete("/token/{token}", s.authHandler.DeleteToken)
+		})
+
+		// URL shortener routes
+		r.Route("/url-shortener", func(r chi.Router) {
+			r.Get("/", s.handleUrlShort)
+			r.Get("/list", s.shortenerHandler.HandleGetUserURLs)
+
+			r.Route("/urls", func(r chi.Router) {
+				r.Post("/", s.shortenerHandler.HandleCreateShortURL)
+				r.Post("/shorten", s.shortenerHandler.HandleShortenForm)
+				r.Get("/{urlID}", s.shortenerHandler.HandleGetURLAnalytics)
+				r.Delete("/{urlID}", s.shortenerHandler.HandleDeleteURL)
+				r.Put("/{urlID}/expiration", s.shortenerHandler.HandleUpdateExpiration)
+			})
 		})
 	})
-
-	// URL Shortener routes
-	shortenerService := shortener.NewService(
-		shortener.NewPostgresRepository(s.db.DB()),
-		fmt.Sprintf("%s:%d", s.config.BaseURL, s.config.Port), // Use config BaseURL
-	)
-	shortenerHandler := handlers.NewHandler(shortenerService)
-
-	// Frontend routes
-	r.Route("/url-short", func(r chi.Router) {
-		r.Get("/", s.handleUrlShort)                       // Main page
-		r.Get("/list", shortenerHandler.HandleGetUserURLs) // Get user's URLs
-	})
-
-	// API routes for URL shortener
-	r.Route("/api/urls", func(r chi.Router) {
-		r.Post("/", shortenerHandler.HandleCreateShortURL)     // Create via API
-		r.Post("/shorten", shortenerHandler.HandleShortenForm) // Create via form
-		r.Get("/{urlID}", shortenerHandler.HandleGetURLAnalytics)
-		r.Delete("/{urlID}", shortenerHandler.HandleDeleteURL)
-		r.Put("/{urlID}/expiration", shortenerHandler.HandleUpdateExpiration)
-	})
-
-	// Public route for redirecting
-	r.Get("/s/{shortCode}", shortenerHandler.HandleRedirect)
 
 	return r
 }

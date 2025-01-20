@@ -1,67 +1,89 @@
 package shortener
 
 import (
+	"context"
 	"database/sql"
 	"errors"
+	"github.com/jmoiron/sqlx"
 	"time"
+	"volaticus-go/internal/common/models"
+	"volaticus-go/internal/database"
 
 	"github.com/google/uuid"
-	"github.com/jmoiron/sqlx"
 )
 
-type postgresRepository struct {
-	db *sqlx.DB
+// Repository defines methods for URL persistence
+type Repository interface {
+	Create(ctx context.Context, url *models.ShortenedURL) error
+	GetByShortCode(ctx context.Context, code string) (*models.ShortenedURL, error)
+	GetByUserID(ctx context.Context, userID uuid.UUID) ([]*models.ShortenedURL, error)
+	IncrementAccessCount(ctx context.Context, id uuid.UUID) error
+	Delete(ctx context.Context, id uuid.UUID) error
+	Update(ctx context.Context, url *models.ShortenedURL) error
+
+	// Analytics methods
+	RecordClick(ctx context.Context, analytics *models.ClickAnalytics) error
+	GetURLAnalytics(ctx context.Context, urlID uuid.UUID) (*models.URLAnalytics, error)
+	GetURLsByExpiration(ctx context.Context, before time.Time) ([]*models.ShortenedURL, error)
 }
 
-func NewPostgresRepository(db *sqlx.DB) Repository {
-	return &postgresRepository{db: db}
+type repository struct {
+	*database.Repository
+}
+
+// NewRepository creates a new shortener repository
+func NewRepository(db *database.DB) Repository {
+	return &repository{
+		Repository: database.NewRepository(db),
+	}
 }
 
 // Create stores a new shortened URL
-func (r *postgresRepository) Create(url *ShortenedURL) error {
+func (r *repository) Create(ctx context.Context, url *models.ShortenedURL) error {
 	query := `
         INSERT INTO shortened_urls (
-            id, user_id, original_url, short_code, created_at, 
+            id, user_id, original_url, short_code, created_at,
             expires_at, is_vanity, is_active
         ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
         RETURNING id`
 
-	return r.db.QueryRow(
-		query,
-		url.ID,
-		url.UserID,
-		url.OriginalURL,
-		url.ShortCode,
-		url.CreatedAt,
-		url.ExpiresAt,
-		url.IsVanity,
-		url.IsActive,
-	).Scan(&url.ID)
+	return r.WithTx(ctx, func(tx *sqlx.Tx) error {
+		return tx.QueryRowContext(ctx, query,
+			url.ID,
+			url.UserID,
+			url.OriginalURL,
+			url.ShortCode,
+			url.CreatedAt,
+			url.ExpiresAt,
+			url.IsVanity,
+			url.IsActive,
+		).Scan(&url.ID)
+	})
 }
 
 // GetByShortCode retrieves a URL by its short code
-func (r *postgresRepository) GetByShortCode(code string) (*ShortenedURL, error) {
-	url := new(ShortenedURL)
-	err := r.db.Get(url, `
-        SELECT * FROM shortened_urls 
-        WHERE short_code = $1 
+func (r *repository) GetByShortCode(ctx context.Context, code string) (*models.ShortenedURL, error) {
+	url := new(models.ShortenedURL)
+	err := r.Get(ctx, url, `
+        SELECT * FROM shortened_urls
+        WHERE short_code = $1
         AND (expires_at IS NULL OR expires_at > CURRENT_TIMESTAMP)
         AND is_active = true`,
 		code,
 	)
-	if err == sql.ErrNoRows {
+	if errors.Is(err, sql.ErrNoRows) {
 		return nil, errors.New("URL not found or expired")
 	}
 	return url, err
 }
 
 // GetByUserID retrieves all URLs created by a specific user
-func (r *postgresRepository) GetByUserID(userID uuid.UUID) ([]*ShortenedURL, error) {
-	var urls []*ShortenedURL
-	err := r.db.Select(&urls, `
-        SELECT * FROM shortened_urls 
-        WHERE user_id = $1 
-        AND is_active = true 
+func (r *repository) GetByUserID(ctx context.Context, userID uuid.UUID) ([]*models.ShortenedURL, error) {
+	var urls []*models.ShortenedURL
+	err := r.Select(ctx, &urls, `
+        SELECT * FROM shortened_urls
+        WHERE user_id = $1
+        AND is_active = true
         ORDER BY created_at DESC`,
 		userID,
 	)
@@ -69,9 +91,9 @@ func (r *postgresRepository) GetByUserID(userID uuid.UUID) ([]*ShortenedURL, err
 }
 
 // IncrementAccessCount increases the access counter for a URL
-func (r *postgresRepository) IncrementAccessCount(id uuid.UUID) error {
-	_, err := r.db.Exec(`
-        UPDATE shortened_urls 
+func (r *repository) IncrementAccessCount(ctx context.Context, id uuid.UUID) error {
+	_, err := r.Exec(ctx, `
+        UPDATE shortened_urls
         SET access_count = access_count + 1,
             last_accessed_at = CURRENT_TIMESTAMP
         WHERE id = $1`,
@@ -81,10 +103,10 @@ func (r *postgresRepository) IncrementAccessCount(id uuid.UUID) error {
 }
 
 // Delete performs a soft delete of a URL
-func (r *postgresRepository) Delete(id uuid.UUID) error {
-	result, err := r.db.Exec(`
-        UPDATE shortened_urls 
-        SET is_active = false 
+func (r *repository) Delete(ctx context.Context, id uuid.UUID) error {
+	result, err := r.Exec(ctx, `
+        UPDATE shortened_urls
+        SET is_active = false
         WHERE id = $1`,
 		id,
 	)
@@ -103,9 +125,9 @@ func (r *postgresRepository) Delete(id uuid.UUID) error {
 }
 
 // Update updates a URL's properties
-func (r *postgresRepository) Update(url *ShortenedURL) error {
-	_, err := r.db.Exec(`
-        UPDATE shortened_urls 
+func (r *repository) Update(ctx context.Context, url *models.ShortenedURL) error {
+	_, err := r.Exec(ctx, `
+        UPDATE shortened_urls
         SET expires_at = $1,
             is_active = $2,
             last_accessed_at = CURRENT_TIMESTAMP
@@ -118,40 +140,34 @@ func (r *postgresRepository) Update(url *ShortenedURL) error {
 }
 
 // RecordClick stores analytics data for a click event
-func (r *postgresRepository) RecordClick(analytics *ClickAnalytics) error {
-	_, err := r.db.Exec(`
+func (r *repository) RecordClick(ctx context.Context, analytics *models.ClickAnalytics) error {
+	query := `
         INSERT INTO click_analytics (
-            id, url_id, clicked_at, referrer, 
+            id, url_id, clicked_at, referrer,
             user_agent, ip_address, country_code,
             city, region
-        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
-		analytics.ID,
-		analytics.URLID,
-		analytics.ClickedAt,
-		analytics.Referrer,
-		analytics.UserAgent,
-		analytics.IPAddress,
-		analytics.CountryCode,
-		analytics.City,
-		analytics.Region,
-	)
-	return err
+        ) VALUES (:id, :url_id, :clicked_at, :referrer, :user_agent, :ip_address, :country_code, :city, :region)`
+
+	return r.WithTx(ctx, func(tx *sqlx.Tx) error {
+		_, err := tx.NamedExecContext(ctx, query, analytics)
+		return err
+	})
 }
 
 // GetURLAnalytics retrieves analytics data for a specific URL
-func (r *postgresRepository) GetURLAnalytics(urlID uuid.UUID) (*URLAnalytics, error) {
-	analytics := &URLAnalytics{}
+func (r *repository) GetURLAnalytics(ctx context.Context, urlID uuid.UUID) (*models.URLAnalytics, error) {
+	analytics := &models.URLAnalytics{}
 
 	// Get the URL details
-	url := new(ShortenedURL)
-	err := r.db.Get(url, "SELECT * FROM shortened_urls WHERE id = $1", urlID)
+	url := new(models.ShortenedURL)
+	err := r.Get(ctx, url, "SELECT * FROM shortened_urls WHERE id = $1", urlID)
 	if err != nil {
 		return nil, err
 	}
 	analytics.URL = url
 
 	// Get total clicks
-	err = r.db.Get(&analytics.TotalClicks, `
+	err = r.Get(ctx, &analytics.TotalClicks, `
         SELECT COUNT(*) FROM click_analytics WHERE url_id = $1`,
 		urlID,
 	)
@@ -160,9 +176,9 @@ func (r *postgresRepository) GetURLAnalytics(urlID uuid.UUID) (*URLAnalytics, er
 	}
 
 	// Get unique clicks (by IP)
-	err = r.db.Get(&analytics.UniqueClicks, `
-        SELECT COUNT(DISTINCT ip_address) 
-        FROM click_analytics 
+	err = r.Get(ctx, &analytics.UniqueClicks, `
+        SELECT COUNT(DISTINCT ip_address)
+        FROM click_analytics
         WHERE url_id = $1`,
 		urlID,
 	)
@@ -171,7 +187,7 @@ func (r *postgresRepository) GetURLAnalytics(urlID uuid.UUID) (*URLAnalytics, er
 	}
 
 	// Get top referrers
-	err = r.db.Select(&analytics.TopReferrers, `
+	err = r.Select(ctx, &analytics.TopReferrers, `
         SELECT referrer, COUNT(*) as count
         FROM click_analytics
         WHERE url_id = $1 AND referrer IS NOT NULL AND referrer != ''
@@ -185,8 +201,8 @@ func (r *postgresRepository) GetURLAnalytics(urlID uuid.UUID) (*URLAnalytics, er
 	}
 
 	// Get top countries
-	err = r.db.Select(&analytics.TopCountries, `
-    SELECT 
+	err = r.Select(ctx, &analytics.TopCountries, `
+    SELECT
         country_code,
         COUNT(*) as count
     FROM click_analytics
@@ -201,8 +217,8 @@ func (r *postgresRepository) GetURLAnalytics(urlID uuid.UUID) (*URLAnalytics, er
 	}
 
 	// Get clicks by day
-	err = r.db.Select(&analytics.ClicksByDay, `
-        SELECT 
+	err = r.Select(ctx, &analytics.ClicksByDay, `
+        SELECT
             DATE_TRUNC('day', clicked_at) as date,
             COUNT(*) as count
         FROM click_analytics
@@ -220,12 +236,12 @@ func (r *postgresRepository) GetURLAnalytics(urlID uuid.UUID) (*URLAnalytics, er
 }
 
 // GetURLsByExpiration retrieves all URLs that expire before a given time
-func (r *postgresRepository) GetURLsByExpiration(before time.Time) ([]*ShortenedURL, error) {
-	var urls []*ShortenedURL
-	err := r.db.Select(&urls, `
-        SELECT * FROM shortened_urls 
-        WHERE expires_at IS NOT NULL 
-        AND expires_at < $1 
+func (r *repository) GetURLsByExpiration(ctx context.Context, before time.Time) ([]*models.ShortenedURL, error) {
+	var urls []*models.ShortenedURL
+	err := r.Select(ctx, &urls, `
+        SELECT * FROM shortened_urls
+        WHERE expires_at IS NOT NULL
+        AND expires_at < $1
         AND is_active = true`,
 		before,
 	)

@@ -1,11 +1,14 @@
 package server
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"log"
 	"net/http"
 	"time"
+	"volaticus-go/internal/config"
+	"volaticus-go/internal/shortener"
 
 	_ "github.com/joho/godotenv/autoload"
 
@@ -17,41 +20,49 @@ import (
 
 // Server represents the HTTP server and its dependencies
 type Server struct {
-	config      *Config
-	db          database.Service
-	authService *auth.Service
-	authHandler *auth.Handler
-	userHandler *user.Handler
-	fileHandler *uploader.Handler
+	config           *config.Config
+	db               *database.DB
+	authService      *auth.Service
+	authHandler      *auth.Handler
+	userHandler      *user.Handler
+	fileHandler      *uploader.Handler
+	shortenerHandler *shortener.Handler
 }
 
 // NewServer creates a new server instance
-func NewServer(config *Config, db database.Service) (*Server, error) {
-	// FIXME: Does this hold too many dependencies?
+func NewServer(config *config.Config, db *database.DB) (*Server, error) {
 	// Initialize repositories
-	userRepo := user.NewPostgresUserRepository(db.DB())
-	tokenRepo := auth.NewPostgresTokenRepository(db.DB())
-	fileRepo := uploader.NewPostgresRepository(db.DB())
+	userRepo := user.NewRepository(db)
+	tokenRepo := auth.NewRepository(db)
+	fileRepo := uploader.NewRepository(db)
+	shortenerRepo := shortener.NewRepository(db)
 
-	// Initialize auth service
+	// Initialize Services
 	authService := auth.NewService(config.Secret, tokenRepo)
+	userService := user.NewService(userRepo)
+	fileService := uploader.NewService(fileRepo, config)
 
 	// Initialize file service & start expired files worker
-	fileService := uploader.NewService(fileRepo, "")
-	uploader.StartExpiredFilesWorker(fileService, 1*time.Minute)
+	ctx := context.Background() // TODO: Use proper context
+	uploader.StartExpiredFilesWorker(ctx, fileService, 1*time.Minute)
+
+	// Initialize shortened URL service
+	shortenerService := shortener.NewService(shortenerRepo, config)
 
 	// Initialize handlers
-	userHandler := user.NewHandler(userRepo, authService)
+	userHandler := user.NewHandler(userService, authService)
 	authHandler := auth.NewHandler(userRepo, authService)
 	fileHandler := uploader.NewHandler(fileService)
+	shortenerHandler := shortener.NewHandler(shortenerService)
 
 	server := &Server{
-		config:      config,
-		db:          db,
-		authService: authService,
-		authHandler: authHandler,
-		userHandler: userHandler,
-		fileHandler: fileHandler,
+		config:           config,
+		db:               db,
+		authService:      &authService,
+		authHandler:      authHandler,
+		userHandler:      userHandler,
+		fileHandler:      fileHandler,
+		shortenerHandler: shortenerHandler,
 	}
 
 	return server, nil

@@ -3,6 +3,7 @@ package uploader
 import (
 	"fmt"
 	"log"
+	"mime/multipart"
 	"net/http"
 	"path/filepath"
 	"volaticus-go/cmd/web/components"
@@ -32,10 +33,15 @@ func (h *Handler) HandleVerifyFile(w http.ResponseWriter, r *http.Request) {
 		}
 		return
 	}
-	defer file.Close()
+	defer func(file multipart.File) {
+		err := file.Close()
+		if err != nil {
+			log.Printf("Error closing file: %v", err)
+		}
+	}(file)
 
 	// Validate the file using service
-	result := h.service.VerifyFile(file, header)
+	result := h.service.VerifyFile(r.Context(), file, header)
 
 	if !result.IsValid {
 		err := components.ValidationError(result.Error).Render(r.Context(), w)
@@ -59,7 +65,12 @@ func (h *Handler) HandleUpload(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Invalid File", http.StatusBadRequest)
 		return
 	}
-	defer file.Close()
+	defer func(file multipart.File) {
+		err := file.Close()
+		if err != nil {
+			log.Printf("Error closing file: %v", err)
+		}
+	}(file)
 
 	userContext := userctx.GetUserFromContext(r.Context())
 	if userContext == nil {
@@ -88,7 +99,7 @@ func (h *Handler) HandleUpload(w http.ResponseWriter, r *http.Request) {
 		UserID:  userContext.ID,
 	}
 
-	response, err := h.service.UploadFile(uploadReq)
+	response, err := h.service.UploadFile(r.Context(), uploadReq)
 	if err != nil {
 		log.Printf("Error uploading file: %v", err)
 		http.Error(w, "Error uploading file", http.StatusInternalServerError)
@@ -112,7 +123,7 @@ func (h *Handler) HandleServeFile(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	file, err := h.service.GetFile(urlvalue)
+	file, err := h.service.GetFile(r.Context(), urlvalue)
 	if err != nil {
 		http.Error(w, "File not found", http.StatusNotFound)
 		return
@@ -131,7 +142,7 @@ func (h *Handler) HandleServeFile(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Disposition", fmt.Sprintf(`inline; filename="%s"`, file.OriginalName))
 	}
 
-	path := filepath.Join(uploadDir, file.UniqueFilename)
+	path := filepath.Join(h.service.config.UploadDirectory, file.UniqueFilename)
 	log.Printf("Serving file from path: %s", path)
 	http.ServeFile(w, r, path)
 

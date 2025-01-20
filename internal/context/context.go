@@ -2,8 +2,6 @@ package context
 
 import (
 	"context"
-	"log"
-
 	"github.com/go-chi/jwtauth/v5"
 	"github.com/google/uuid"
 )
@@ -40,7 +38,6 @@ func GetUserFromContext(ctx context.Context) *UserInfo {
 func getUserFromClaims(claims map[string]interface{}) *UserInfo {
 	userID, _ := claims["user_id"].(string)
 	username, _ := claims["username"].(string)
-	log.Printf("Got user claims from JWt: %s : %s", username, userID)
 	if userID == "" || username == "" {
 		return nil
 	}
