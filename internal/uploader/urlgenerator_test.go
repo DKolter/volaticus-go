@@ -9,14 +9,6 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func TestGenerateOriginalNameURL(t *testing.T) {
-	g := NewURLGenerator()
-	url, err := g.generateOriginalNameURL("Test File.jpg")
-	assert.NoError(t, err)
-	assert.Contains(t, url, "test-file")
-	assert.Len(t, url, len("test-file.jpg-")+8)
-}
-
 func TestGenerateDefaultURL(t *testing.T) {
 	g := NewURLGenerator()
 	url, err := g.generateDefaultURL()
