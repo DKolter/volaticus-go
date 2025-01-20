@@ -90,17 +90,3 @@ func (s *Server) handleError404(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Error rendering 404 page", http.StatusInternalServerError)
 	}
 }
-
-func (s *Server) handleError401(w http.ResponseWriter, r *http.Request) {
-	w.WriteHeader(http.StatusUnauthorized)
-	if err := pages.Error401().Render(r.Context(), w); err != nil {
-		http.Error(w, "Error rendering 401 page", http.StatusInternalServerError)
-	}
-}
-
-func (s *Server) handleError403(w http.ResponseWriter, r *http.Request) {
-	w.WriteHeader(http.StatusForbidden)
-	if err := pages.Error403().Render(r.Context(), w); err != nil {
-		http.Error(w, "Error rendering 403 page", http.StatusInternalServerError)
-	}
-}
