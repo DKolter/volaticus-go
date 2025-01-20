@@ -2,10 +2,19 @@
 
 A modern, secure file sharing and URL shortening platform built with Go.
 
-**[<kbd> <br> 🕹 Features <br> </kbd>][Features]**
-**[<kbd> <br> 🚀 Install <br> </kbd>][Installation]**
-**[<kbd> <br> 📘 Documentation <br> </kbd>][Documentation]**
-**[<kbd> <br> 💙 Contribute <br> </kbd>][Contribution]**
+
+<div align = center>
+
+
+---
+
+**[<kbd> <br> 🚀 Install <br> </kbd>][Installation]** 
+**[<kbd> <br> 📘 Documentation <br> </kbd>][Documentation]** 
+**[<kbd> <br> 🕹 Features <br> </kbd>][Features]** 
+**[<kbd> <br> 💙 Contribute <br> </kbd>][Contribution]**  
+
+---
+</div>
 
 ## 🌟 Features
 
