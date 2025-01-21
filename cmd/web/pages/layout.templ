@@ -13,17 +13,15 @@ templ Base() {
 			<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
 			<title>Volaticus</title>
 			// TODO: Update meta tags, possibly use a helper function to generate them
-      <meta name="description" content="Volaticus - A powerful file sharing and URL shortening platform. Upload files, create short URLs, track analytics, and manage your digital content with ease."/>
-
-      <meta property="og:title" content="Volaticus - File Sharing & URL Shortening"/>
-      <meta property="og:description" content="Securely upload files, create custom short URLs, and track engagement with comprehensive analytics. Features include custom URLs, QR code generation, and expiring links."/>
-      //<meta property="og:image" content="/assets/volaticus-share.png"/>
-      //<meta property="og:url" content="PLACEHOLDER"/>
-
-      <meta name="twitter:card" content="summary_large_image"/>
-      <meta name="twitter:title" content="Volaticus - File Sharing & URL Shortening"/>
-      <meta name="twitter:description" content="Securely upload files, create custom short URLs, and track engagement with comprehensive analytics. Features include custom URLs, QR code generation, and expiring links."/>
-      // <meta name="twitter:image" content="/assets/volaticus-share.png"/> // TODO: Create a share image
+			<meta name="description" content="Volaticus - A powerful file sharing and URL shortening platform. Upload files, create short URLs, track analytics, and manage your digital content with ease."/>
+			<meta property="og:title" content="Volaticus - File Sharing & URL Shortening"/>
+			<meta property="og:description" content="Securely upload files, create custom short URLs, and track engagement with comprehensive analytics. Features include custom URLs, QR code generation, and expiring links."/>
+			//<meta property="og:image" content="/assets/volaticus-share.png"/>
+			//<meta property="og:url" content="PLACEHOLDER"/>
+			<meta name="twitter:card" content="summary_large_image"/>
+			<meta name="twitter:title" content="Volaticus - File Sharing & URL Shortening"/>
+			<meta name="twitter:description" content="Securely upload files, create custom short URLs, and track engagement with comprehensive analytics. Features include custom URLs, QR code generation, and expiring links."/>
+			// <meta name="twitter:image" content="/assets/volaticus-share.png"/> // TODO: Create a share image
 			<script src="assets/js/htmx.min.js"></script>
 			<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.7.0/chart.min.js"></script>
 			<script src="https://unpkg.com/htmx.org/dist/ext/json-enc.js"></script>
@@ -32,6 +30,72 @@ templ Base() {
 		</head>
 		<body class="h-full">
 			{ children... }
+			<script>
+                function showToast(message, type = 'success', duration = 3000) {
+                    // Create container if it doesn't exist
+                    let container = document.getElementById('toast-container');
+                    if (!container) {
+                        container = document.createElement('div');
+                        container.id = 'toast-container';
+                        container.className = 'fixed bottom-4 right-4 z-50 flex flex-col gap-2';
+                        document.body.appendChild(container);
+                    }
+
+                    const toast = document.createElement('div');
+                    toast.className = `transform transition-all duration-300 translate-x-full`;
+
+                    // Set background color based on type
+                    let bgColor = 'bg-gray-800';
+                    let textColor = 'text-white';
+                    let borderColor = 'border-gray-700';
+
+                    switch (type) {
+                        case 'success':
+                            borderColor = 'border-green-500';
+                            break;
+                        case 'error':
+                            borderColor = 'border-red-500';
+                            break;
+                        case 'warning':
+                            borderColor = 'border-yellow-500';
+                            break;
+                        case 'info':
+                            borderColor = 'border-blue-500';
+                            break;
+                    }
+
+                    toast.innerHTML = `
+                        <div class="px-4 py-2 rounded-lg shadow-lg border-l-4 ${bgColor} ${textColor} ${borderColor}">
+                            <p class="text-sm font-medium">${message}</p>
+                        </div>
+                    `;
+
+                    container.appendChild(toast);
+
+                    // Trigger animation
+                    requestAnimationFrame(() => {
+                        toast.classList.remove('translate-x-full');
+                        toast.classList.add('translate-x-0');
+                    });
+
+                    // Remove toast after duration
+                    setTimeout(() => {
+                        toast.classList.remove('translate-x-0');
+                        toast.classList.add('translate-x-full');
+
+                        // Remove element after animation
+                        setTimeout(() => {
+                            if (container.contains(toast)) {
+                                container.removeChild(toast);
+                            }
+                            // Remove container if empty
+                            if (container.children.length === 0) {
+                                container.remove();
+                            }
+                        }, 300);
+                    }, duration);
+                }
+            </script>
 		</body>
 	</html>
 }

@@ -289,7 +289,9 @@ templ ErrorResult(message string) {
 script copyToClipboard(shortCode string) {
     const url = window.location.origin + "/s/" + shortCode;
     navigator.clipboard.writeText(url).then(() => {
-        showToast('URL copied to clipboard');
+        showToast('URL copied to clipboard', 'success');
+    }).catch(() => {
+        showToast('Failed to copy URL', 'error');
     });
 }
 

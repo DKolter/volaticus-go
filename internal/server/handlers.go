@@ -44,7 +44,7 @@ func (s *Server) handleSettings(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Get user's API tokens
-	userTokens, err := (*s.authService).GetUserAPITokens(r.Context(), user.ID)
+	userTokens, err := s.authService.GetUserAPITokens(r.Context(), user.ID)
 	if err != nil {
 		// Log error but don't expose internal error to user
 		log.Printf("Error fetching user tokens: %v", err)

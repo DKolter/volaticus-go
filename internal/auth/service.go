@@ -143,6 +143,11 @@ func (s *authService) ValidateAPIToken(ctx context.Context, token string) (*mode
 		return nil, errors.New("token has expired")
 	}
 
+	err = s.repo.UpdateLastUsed(ctx, apiToken.ID)
+	if err != nil {
+		log.Printf("Failed to update last used for token: %s", token)
+	}
+
 	return apiToken, nil
 }
 

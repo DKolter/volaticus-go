@@ -16,6 +16,14 @@ func TestGenerateDefaultURL(t *testing.T) {
 	assert.NotEmpty(t, url)
 }
 
+func TestGenerateOriginalNameURL(t *testing.T) {
+	g := NewURLGenerator()
+	url, err := g.generateOriginalNameURL("Test File.jpg")
+	assert.NoError(t, err)
+	assert.Contains(t, url, "test-file")
+	assert.Len(t, url, len("test-file.jpg-")+8)
+}
+
 func TestGenerateRandomURL(t *testing.T) {
 	g := NewURLGenerator()
 	url, err := g.generateRandomURL()

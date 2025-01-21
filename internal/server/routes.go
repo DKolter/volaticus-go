@@ -5,6 +5,7 @@ import (
 	"github.com/go-chi/chi/v5/middleware"
 	"github.com/go-chi/cors"
 	"github.com/go-chi/jwtauth/v5"
+	"log"
 	"net/http"
 	"volaticus-go/cmd/web"
 )
@@ -16,11 +17,7 @@ func (s *Server) RegisterRoutes() http.Handler {
 
 	// JWT authentication middleware
 	// Get the JWT auth instance
-	tokenAuth := (*s.authService).GetAuth()
-
-	// Add JWT verification middleware
-	r.Use(jwtauth.Verifier(tokenAuth))
-	r.Use(s.AuthMiddleware(tokenAuth))
+	tokenAuth := s.authService.GetAuth()
 
 	if s.config.Env == "dev" || s.config.Env == "development" {
 		r.Use(middleware.NoCache)
@@ -61,6 +58,9 @@ func (s *Server) RegisterRoutes() http.Handler {
 
 	// Protected routes
 	r.Group(func(r chi.Router) {
+		// Add JWT verification middleware
+		r.Use(jwtauth.Verifier(tokenAuth))
+		r.Use(s.AuthMiddleware(tokenAuth))
 		r.Use(jwtauth.Authenticator(tokenAuth)) // Require authentication
 
 		// Main pages
@@ -97,6 +97,20 @@ func (s *Server) RegisterRoutes() http.Handler {
 				r.Delete("/{urlID}", s.shortenerHandler.HandleDeleteURL)
 				r.Put("/{urlID}/expiration", s.shortenerHandler.HandleUpdateExpiration)
 			})
+		})
+	})
+
+	// API routes with token authentication
+
+	// API routes group
+	r.Group(func(r chi.Router) {
+		// All API routes will require token auth
+		r.Use(s.APITokenAuthMiddleware)
+
+		// Upload endpoint
+		r.Post("/api/v1/upload", func(w http.ResponseWriter, r *http.Request) {
+			log.Printf("Upload request received")
+			s.fileHandler.HandleAPIUpload(w, r)
 		})
 	})
 

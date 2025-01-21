@@ -156,6 +156,38 @@ server {
 }
 ```
 
+## 🔌 API Usage
+
+### File Upload API
+
+You can upload files programmatically using the API endpoint. Here's how to use it with curl: 
+
+  First generate an API token in the web interface under Settings
+
+```bash
+# Upload a file
+curl -X POST http://localhost:8080/api/v1/upload \
+  -H "Authorization: Bearer your_api_token" \
+  -F "file=@/path/to/your/file.jpg"
+```
+ Response will contain the file URL:
+```json
+
+{
+  "success": true,
+  "url": "http://localhost:8080/f/unique-file-url"
+}
+```
+
+Customize the URL format (optional)
+``` bash
+# Available types: default, original_name, random, date, uuid, gfycat
+curl -X POST http://localhost:8080/api/v1/upload \
+  -H "Authorization: Bearer your_api_token" \
+  -H "Url-Type: gfycat" \
+  -F "file=@/path/to/your/file.jpg"
+```
+
 ## 🤝 Contributing
 
 We welcome contributions! Here's how you can help:
