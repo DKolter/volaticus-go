@@ -1,6 +1,8 @@
 package uploader
 
 import (
+	"encoding/json"
+	"errors"
 	"fmt"
 	"log"
 	"mime/multipart"
@@ -146,4 +148,101 @@ func (h *Handler) HandleServeFile(w http.ResponseWriter, r *http.Request) {
 	log.Printf("Serving file from path: %s", path)
 	http.ServeFile(w, r, path)
 
+}
+
+type APIUploadResponse struct {
+	Success bool   `json:"success"`
+	URL     string `json:"url,omitempty"`
+	Error   string `json:"error,omitempty"`
+}
+
+// sendAPIResponse handles JSON response formatting consistently
+func sendAPIResponse(w http.ResponseWriter, status int, success bool, url string, err error) {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(status)
+
+	response := APIUploadResponse{
+		Success: success,
+		URL:     url,
+	}
+
+	if err != nil {
+		response.Error = err.Error()
+	}
+
+	if err := json.NewEncoder(w).Encode(response); err != nil {
+		log.Printf("Error encoding response: %v", err)
+	}
+}
+
+// HandleAPIUpload handles file upload through the API with minimal configuration
+func (h *Handler) HandleAPIUpload(w http.ResponseWriter, r *http.Request) {
+	log.Printf("API Upload request from %s", r.RemoteAddr)
+	// Get user from context
+	userContext := userctx.GetUserFromContext(r.Context())
+	log.Printf("User context: %v", userContext)
+	if userContext == nil {
+		sendAPIResponse(w, http.StatusUnauthorized, false, "", errors.New("unauthorized"))
+		return
+	}
+
+	// Check content length against max size before reading the file
+	if r.ContentLength > h.service.config.MaxUploadSize {
+		sendAPIResponse(w, http.StatusRequestEntityTooLarge, false, "", ErrFileTooLarge)
+		return
+	}
+
+	// Get file from request
+	file, header, err := r.FormFile("file")
+	if err != nil {
+		status := http.StatusBadRequest
+		if errors.Is(err, http.ErrMissingFile) {
+			err = ErrNoFile
+		}
+		sendAPIResponse(w, status, false, "", err)
+		return
+	}
+	defer func(file multipart.File) {
+		err := file.Close()
+		if err != nil {
+			log.Printf("Error closing file: %v", err)
+		}
+	}(file)
+
+	// Validate file size again after reading the header
+	if header.Size > h.service.config.MaxUploadSize {
+		sendAPIResponse(w, http.StatusRequestEntityTooLarge, false, "", ErrFileTooLarge)
+		return
+	}
+
+	// Parse URL type from header (optional)
+	urlType := URLTypeDefault
+	if typeHeader := r.Header.Get("Url-Type"); typeHeader != "" {
+		parsedType, err := ParseURLType(typeHeader)
+		if err != nil {
+			sendAPIResponse(w, http.StatusBadRequest, false, "", ErrInvalidURLType)
+			return
+		}
+		urlType = parsedType
+	}
+
+	// Create upload request
+	uploadReq := &UploadRequest{
+		File:    file,
+		Header:  header,
+		URLType: urlType,
+		UserID:  userContext.ID,
+	}
+
+	// Process upload
+	response, err := h.service.UploadFile(r.Context(), uploadReq)
+	if err != nil {
+		// Log the internal error but don't send it to the client
+		log.Printf("Upload error: %v", err)
+		sendAPIResponse(w, http.StatusInternalServerError, false, "", errors.New("upload failed"))
+		return
+	}
+
+	// Return success response
+	sendAPIResponse(w, http.StatusOK, true, response.FileUrl, nil)
 }

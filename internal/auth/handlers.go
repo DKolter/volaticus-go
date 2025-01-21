@@ -46,9 +46,11 @@ func (h *Handler) GenerateToken(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Unauthorized", http.StatusUnauthorized)
 		return
 	}
+	req.UserID = user.ID
 
 	if err := validation.Validate(&req); err != nil {
 		errors := validation.FormatError(err)
+		log.Printf("Validation errors: %v", errors)
 		http.Error(w, errors[0].Error, http.StatusBadRequest)
 		return
 	}

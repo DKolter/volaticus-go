@@ -131,16 +131,24 @@ func (s *authService) GenerateAPIToken(ctx context.Context, userID uuid.UUID, na
 
 func (s *authService) ValidateAPIToken(ctx context.Context, token string) (*models.APIToken, error) {
 	apiToken, err := s.repo.GetAPITokenByToken(ctx, token)
+	log.Printf("Validating token: %s", token)
 	if err != nil {
 		return nil, err
 	}
 
 	if !apiToken.IsActive || apiToken.RevokedAt != nil {
+		log.Printf("Token is inactive or revoked: %s", token)
 		return nil, errors.New("token is inactive or revoked")
 	}
 
 	if apiToken.ExpiresAt != nil && time.Now().After(*apiToken.ExpiresAt) {
+		log.Printf("Token is inactive or revoked: %s", token)
 		return nil, errors.New("token has expired")
+	}
+
+	err = s.repo.UpdateLastUsed(ctx, apiToken.ID)
+	if err != nil {
+		log.Printf("Failed to update last used for token: %s", token)
 	}
 
 	return apiToken, nil

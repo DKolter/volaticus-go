@@ -1,11 +1,16 @@
 package uploader
 
-import "fmt"
+import (
+	"errors"
+)
 
 var (
-	ErrDuplicateURLValue = fmt.Errorf("duplicate URL value")
-	ErrNoRows            = fmt.Errorf("no rows found")
-	ErrTransaction       = fmt.Errorf("transaction error")
-	ErrCommit            = fmt.Errorf("commit transaction error")
-	ErrRollback          = fmt.Errorf("rollback transaction error")
+	ErrDuplicateURLValue = errors.New("duplicate URL value")
+	ErrNoRows            = errors.New("no rows found")
+	ErrTransaction       = errors.New("transaction error")
+	ErrCommit            = errors.New("commit transaction error")
+	ErrRollback          = errors.New("rollback transaction error")
+	ErrNoFile            = errors.New("no file provided")
+	ErrFileTooLarge      = errors.New("file exceeds maximum allowed size")
+	ErrInvalidURLType    = errors.New("invalid URL type")
 )

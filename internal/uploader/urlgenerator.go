@@ -5,6 +5,8 @@ import (
 	"database/sql/driver"
 	"fmt"
 	"math/big"
+	"path/filepath"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -193,8 +195,18 @@ func (g *URLGenerator) GenerateURL(urlType URLType, originalName string) (string
 
 // generateOriginalNameURL creates a URL using the original filename
 func (g *URLGenerator) generateOriginalNameURL(originalName string) (string, error) {
-	// In case we need to sanatize it later
-	return originalName, nil
+	// Clean the filename and remove any potentially problematic characters
+	base := filepath.Base(originalName)
+	base = strings.ToLower(base)
+	base = strings.ReplaceAll(base, " ", "-")
+
+	// Add a random suffix to prevent collisions
+	suffix := make([]byte, 4)
+	if _, err := rand.Read(suffix); err != nil {
+		return "", err
+	}
+	nameWithSuffix := fmt.Sprintf("%s-%x", base, suffix)
+	return nameWithSuffix, nil
 }
 
 // generateDefaultURL creates a URL using a timestamp

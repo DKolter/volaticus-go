@@ -105,7 +105,7 @@ func (s *Service) UploadFile(ctx context.Context, req *UploadRequest) (*models.C
 	// Add extension if not present
 	ext := filepath.Ext(req.Header.Filename)
 
-	if ext != "" && !strings.HasSuffix(urlValue, ext) {
+	if ext != "" && !strings.Contains(urlValue, ext) {
 		urlValue = urlValue + ext
 	}
 
@@ -133,7 +133,9 @@ func (s *Service) UploadFile(ctx context.Context, req *UploadRequest) (*models.C
 
 	// Save to database
 	if err := s.repo.CreateWithURL(ctx, uploadedFile, urlValue); err != nil {
-		err := os.Remove(filepath.Join(s.config.UploadDirectory, urlValue))
+		// Rollback file creation
+		log.Printf("Error saving to database, rolling back file creation: %v", err)
+		err := os.Remove(filepath.Join(s.config.UploadDirectory, uniqueFilename))
 		if err != nil {
 			return nil, err
 		}

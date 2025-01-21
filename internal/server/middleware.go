@@ -1,8 +1,10 @@
 package server
 
 import (
+	"log"
 	"net/http"
 	"strings"
+	userctx "volaticus-go/internal/context"
 
 	"github.com/go-chi/jwtauth/v5"
 )
@@ -18,6 +20,7 @@ func (s *Server) AuthMiddleware(ja *jwtauth.JWTAuth) func(http.Handler) http.Han
 			// Allow files and shortened URLs without authentication
 			if strings.HasPrefix(r.URL.Path, "/static/") ||
 				strings.HasPrefix(r.URL.Path, "/s/") ||
+				strings.HasPrefix(r.URL.Path, "/api/") ||
 				strings.HasPrefix(r.URL.Path, "/f/") ||
 				strings.HasSuffix(r.URL.Path, ".css") ||
 				strings.HasSuffix(r.URL.Path, ".js") ||
@@ -56,4 +59,57 @@ func (s *Server) AuthMiddleware(ja *jwtauth.JWTAuth) func(http.Handler) http.Han
 			next.ServeHTTP(w, r)
 		})
 	}
+}
+
+// APITokenAuthMiddleware verifies API token for routes under /api/v1/
+func (s *Server) APITokenAuthMiddleware(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// Skip middleware if not an API route
+		if !strings.HasPrefix(r.URL.Path, "/api/") {
+			next.ServeHTTP(w, r)
+			return
+		}
+
+		// Get token from Authorization header
+		authHeader := r.Header.Get("Authorization")
+		if authHeader == "" {
+			http.Error(w, "Authorization header required", http.StatusUnauthorized)
+			return
+		}
+
+		// Check Bearer token format
+		parts := strings.Split(authHeader, " ")
+		if len(parts) != 2 || parts[0] != "Bearer" {
+			http.Error(w, "Invalid authorization format", http.StatusUnauthorized)
+			return
+		}
+
+		token := parts[1]
+
+		// Validate token
+		apiToken, err := s.authService.ValidateAPIToken(r.Context(), token)
+		if err != nil {
+			log.Printf("Token validation error: %v", err)
+			http.Error(w, "Invalid or expired token", http.StatusUnauthorized)
+			return
+		}
+
+		// Get user information
+		user, err := s.userService.GetByID(r.Context(), apiToken.UserID)
+		if err != nil {
+			log.Printf("User lookup error: %v", err)
+			http.Error(w, "User not found", http.StatusUnauthorized)
+			return
+		}
+
+		// Add user info to context
+		userInfo := &userctx.UserInfo{
+			ID:       user.ID,
+			Username: user.Username,
+		}
+		ctx := userctx.WithUser(r.Context(), userInfo)
+
+		// Continue with the authenticated request
+		next.ServeHTTP(w, r.WithContext(ctx))
+	})
 }

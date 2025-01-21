@@ -22,7 +22,8 @@ import (
 type Server struct {
 	config           *config.Config
 	db               *database.DB
-	authService      *auth.Service
+	authService      auth.Service
+	userService      user.Service
 	authHandler      *auth.Handler
 	userHandler      *user.Handler
 	fileHandler      *uploader.Handler
@@ -58,7 +59,8 @@ func NewServer(config *config.Config, db *database.DB) (*Server, error) {
 	server := &Server{
 		config:           config,
 		db:               db,
-		authService:      &authService,
+		authService:      authService,
+		userService:      userService,
 		authHandler:      authHandler,
 		userHandler:      userHandler,
 		fileHandler:      fileHandler,
