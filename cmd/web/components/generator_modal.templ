@@ -1,0 +1,120 @@
+package components
+
+templ GeneratorModal() {
+	<div
+		id="generatorModal"
+		class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50"
+	>
+		<div class="bg-gray-800 rounded-lg p-6 w-full max-w-md" onclick="event.stopPropagation()">
+			<div class="flex justify-between items-center mb-4">
+				<h3 class="text-xl font-semibold text-white">Generate Configuration</h3>
+				<button onclick="closeGeneratorModal()" class="text-gray-400 hover:text-white">
+					<svg class="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+						<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+					</svg>
+				</button>
+			</div>
+			<div class="space-y-4">
+				<!-- URL Type Selection -->
+				<div>
+					<label class="block text-sm font-medium text-gray-300 mb-2">URL Type</label>
+					<select
+						id="urlTypeSelect"
+						class="w-full rounded-md border-0 bg-gray-700 py-1.5 pl-3 pr-10 text-white shadow-sm ring-1 ring-inset ring-gray-600 focus:ring-2 focus:ring-inset focus:ring-indigo-500"
+					>
+						<option value="default" class="px-3">Default (Timestamp)</option>
+						<option value="original_name" class="px-3">Original Filename</option>
+						<option value="random" class="px-3">Random String</option>
+						<option value="date" class="px-3">Date-based</option>
+						<option value="uuid" class="px-3">UUID</option>
+						<option value="gfycat" class="px-3">GfyCat Style</option>
+					</select>
+				</div>
+				<div class="flex items-center justify-between pt-4">
+					<!-- ShareX Config Button -->
+					<button
+						onclick="downloadShareXConfig()"
+						class="bg-indigo-500 text-white px-4 py-2 rounded text-sm hover:bg-indigo-400"
+					>
+						Download ShareX Config
+					</button>
+					<!-- Copy Curl Button -->
+					<button
+						onclick="copyCurlCommand()"
+						class="bg-gray-700 text-white px-4 py-2 rounded text-sm hover:bg-gray-600"
+					>
+						Copy Curl Command
+					</button>
+				</div>
+				<!-- Hidden pre for curl command -->
+				<pre id="curlCommand" class="hidden"></pre>
+			</div>
+		</div>
+	</div>
+	<script>
+        let currentToken = '';
+        let currentName = '';
+
+        function showGeneratorModal(token, name) {
+            currentToken = token;
+            currentName = name;
+            const modal = document.getElementById('generatorModal');
+            modal.classList.remove('hidden');
+            modal.onclick = function(event) {
+                if (event.target === modal) {
+                    closeGeneratorModal();
+                }
+            };
+        }
+
+        function closeGeneratorModal() {
+            document.getElementById('generatorModal').classList.add('hidden');
+        }
+
+        function getShareXConfig(urlType) {
+            return {
+                "Version": "14.1.0",
+                "Name": `Volaticus - ${window.location.host} - ${currentName}`,
+                "DestinationType": "ImageUploader, TextUploader, FileUploader",
+                "RequestMethod": "POST",
+                "RequestURL": `${window.location.protocol}//${window.location.host}/api/v1/upload`,
+                "Headers": {
+                    "Authorization": `Bearer ${currentToken}`,
+                    "Url-Type": urlType
+                },
+                "URL": "{json:url}",
+                "Body": "MultipartFormData",
+                "FileFormName": "file"
+            };
+        }
+
+        function getCurlCommand(urlType) {
+            return `curl -X POST "${window.location.protocol}//${window.location.host}/api/v1/upload" \\
+    -H "Authorization: Bearer ${currentToken}" \\
+    -H "Url-Type: ${urlType}" \\
+    -F "file=@/path/to/your/file.jpg"`;
+        }
+
+        function downloadShareXConfig() {
+            const urlType = document.getElementById('urlTypeSelect').value;
+            const config = getShareXConfig(urlType);
+            const blob = new Blob([JSON.stringify(config, null, 2)], { type: 'application/json' });
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `volaticus-${window.location.host}-${currentName.toLowerCase()}-${urlType}.sxcu`;
+            document.body.appendChild(a);
+            a.click();
+            window.URL.revokeObjectURL(url);
+            document.body.removeChild(a);
+        }
+
+        function copyCurlCommand() {
+            const urlType = document.getElementById('urlTypeSelect').value;
+            const command = getCurlCommand(urlType);
+            navigator.clipboard.writeText(command).then(() => {
+                showToast('Curl command copied to clipboard');
+            });
+        }
+    </script>
+}

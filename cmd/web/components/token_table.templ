@@ -26,8 +26,7 @@ templ TokenTable(tokens []*models.APIToken) {
 							<div class="flex items-center gap-2">
 								<input
 									type="password"
-									type="password"
-									value=" { token.Token }"
+									value={ token.Token }
 									class="bg-gray-700 px-2 py-1 rounded font-mono text-gray-300 flex-1"
 								/>
 								<button
@@ -45,25 +44,40 @@ templ TokenTable(tokens []*models.APIToken) {
 							@formatDateTime(token.LastUsedAt)
 						</td>
 						<td class="px-6 py-4">
-							<button
-								class="text-red-400 hover:text-red-300"
-								hx-delete={ "/settings/token/" + fmt.Sprintf("%v", token.Token) }
-								hx-confirm="Are you sure you want to delete this token?"
-							>
-								Delete
-							</button>
+							<div class="flex items-center gap-3">
+								<button
+									onclick={ generateConfig(token.Token, token.Name) }
+									class="inline-flex items-center justify-center text-indigo-400 hover:text-indigo-300"
+								>
+									Generate
+								</button>
+								<button
+									class="inline-flex items-center justify-center text-red-400 hover:text-red-300"
+									hx-delete={ "/settings/token/" + fmt.Sprintf("%v", token.Token) }
+									hx-confirm="Are you sure you want to delete this token?"
+								>
+									Delete
+								</button>
+							</div>
 						</td>
 					</tr>
 				}
 			</tbody>
+			@GeneratorModal()
 		</table>
 	</div>
 }
 
+script generateConfig(token string, name string) {
+    showGeneratorModal(token, name);
+}
+
 script copyToClipboard(text string) {
-		navigator.clipboard.writeText(text).then(() => {
-		console.log('Token copied to clipboard');
-	});
+    navigator.clipboard.writeText(text).then(() => {
+        showToast('Token copied to clipboard', 'success');
+    }).catch(() => {
+        showToast('Failed to copy token', 'error');
+    });
 }
 
 templ formatDateTime(t *time.Time) {
