@@ -8,18 +8,26 @@ import (
 	"mime/multipart"
 	"net/http"
 	"path/filepath"
+	"strconv"
 	"volaticus-go/cmd/web/components"
 	"volaticus-go/cmd/web/pages"
+	"volaticus-go/internal/context"
 	userctx "volaticus-go/internal/context"
 
 	"github.com/go-chi/chi/v5"
+	"github.com/google/uuid"
+)
+
+const (
+	defaultPageSize = 10
+	maxPageSize     = 50
 )
 
 type Handler struct {
-	service *Service
+	service *service
 }
 
-func NewHandler(service *Service) *Handler {
+func NewHandler(service *service) *Handler {
 	return &Handler{
 		service: service,
 	}
@@ -245,4 +253,161 @@ func (h *Handler) HandleAPIUpload(w http.ResponseWriter, r *http.Request) {
 
 	// Return success response
 	sendAPIResponse(w, http.StatusOK, true, response.FileUrl, nil)
+}
+
+// HandleFilesList handles the GET /files/list endpoint
+func (h *Handler) HandleFilesList(w http.ResponseWriter, r *http.Request) {
+	user := context.GetUserFromContext(r.Context())
+	if user == nil {
+		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		return
+	}
+
+	// Parse pagination parameters
+	page := 1
+	limit := defaultPageSize
+
+	if pageStr := r.URL.Query().Get("page"); pageStr != "" {
+		if p, err := strconv.Atoi(pageStr); err == nil && p > 0 {
+			page = p
+		}
+	}
+
+	if limitStr := r.URL.Query().Get("limit"); limitStr != "" {
+		if l, err := strconv.Atoi(limitStr); err == nil && l > 0 && l <= maxPageSize {
+			limit = l
+		}
+	}
+
+	offset := (page - 1) * limit
+
+	// Get files and stats for the current user with pagination
+	files, err := h.service.GetUserFiles(r.Context(), user.ID, limit, offset)
+	if err != nil {
+		log.Printf("Error fetching files: %v", err)
+		http.Error(w, "Error fetching files", http.StatusInternalServerError)
+		return
+	}
+
+	// Get total count for pagination
+	total, err := h.service.GetUserFilesCount(r.Context(), user.ID)
+	if err != nil {
+		log.Printf("Error fetching file count: %v", err)
+		http.Error(w, "Error fetching file count", http.StatusInternalServerError)
+		return
+	}
+
+	totalPages := (total + limit - 1) / limit // Ceiling division
+
+	// Render the file list component
+	props := components.FileListProps{
+		Files:      files,
+		ShowPaging: true,
+		Page:       page,
+		TotalPages: totalPages,
+		EmptyState: "No files uploaded yet",
+	}
+
+	err = components.FileListComponent(props).Render(r.Context(), w)
+	if err != nil {
+		log.Printf("Error rendering file list: %v", err)
+		http.Error(w, "Error rendering file list", http.StatusInternalServerError)
+		return
+	}
+}
+
+// HandleRecentFiles returns the last N files for a user
+func (h *Handler) HandleRecentFiles(w http.ResponseWriter, r *http.Request, limit int) {
+	user := context.GetUserFromContext(r.Context())
+	if user == nil {
+		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		return
+	}
+
+	// Get recent files
+	files, err := h.service.GetUserFiles(r.Context(), user.ID, limit, 0)
+	if err != nil {
+		http.Error(w, "Error fetching recent files", http.StatusInternalServerError)
+		return
+	}
+
+	// Render the file list component without pagination
+	props := components.FileListProps{
+		Files:      files,
+		ShowPaging: false,
+		EmptyState: "Upload your first file above",
+	}
+
+	err = components.FileListComponent(props).Render(r.Context(), w)
+	if err != nil {
+		http.Error(w, "Error rendering file list", http.StatusInternalServerError)
+		return
+	}
+}
+
+func (h *Handler) HandleDeleteFile(w http.ResponseWriter, r *http.Request) {
+	user := context.GetUserFromContext(r.Context())
+	log.Printf("INFO: User: %v is attempting to delete File: %v", user, chi.URLParam(r, "fileID"))
+	if user == nil {
+		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		log.Printf("Unauthorized")
+		return
+	}
+
+	fileID := chi.URLParam(r, "fileID")
+	if fileID == "" {
+		http.Error(w, "Missing file ID", http.StatusBadRequest)
+		log.Printf("Missing file ID")
+		return
+	}
+
+	// Parse file ID
+	id, err := uuid.Parse(fileID)
+	if err != nil {
+		http.Error(w, "Invalid file ID", http.StatusBadRequest)
+		log.Printf("Invalid file ID: %v", err)
+		return
+	}
+
+	// Delete the file
+	err = h.service.DeleteFileByID(r.Context(), id, user.ID)
+	if err != nil {
+		switch {
+		case errors.Is(err, ErrUnauthorized):
+			http.Error(w, "Unauthorized", http.StatusForbidden)
+			log.Printf("Unauthorized")
+		case errors.Is(err, ErrNoRows):
+			http.Error(w, "File not found", http.StatusNotFound)
+			log.Printf("File not found")
+		default:
+			log.Printf("Error deleting file: %v", err)
+			http.Error(w, "Internal server error", http.StatusInternalServerError)
+		}
+		return
+	}
+
+	// Set header to trigger refresh of file lists
+	w.Header().Set("HX-Trigger", "fileDeleted")
+	w.WriteHeader(http.StatusOK)
+}
+
+// HandleGetFileStats returns the file stats component for a user
+func (h *Handler) HandleGetFileStats(w http.ResponseWriter, r *http.Request) {
+	user := context.GetUserFromContext(r.Context())
+	if user == nil {
+		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		return
+	}
+
+	stats, err := h.service.GetFileStats(r.Context(), user.ID)
+	if err != nil {
+		http.Error(w, "Error fetching file stats", http.StatusInternalServerError)
+		return
+	}
+
+	err = components.FileStatsComponent(stats).Render(r.Context(), w)
+	if err != nil {
+		http.Error(w, "Error rendering file stats", http.StatusInternalServerError)
+		return
+	}
 }

@@ -4,27 +4,59 @@
 
 /* URL Shortener specific components */
 .url-card {
-    @apply bg-gray-800 rounded-lg p-6 border border-gray-700 transition-all duration-200;
+  @apply bg-gray-800 rounded-lg p-6 border border-gray-700 transition-all duration-200;
 }
 
 .url-card:hover {
-    @apply border-gray-600 shadow-lg;
+  @apply border-gray-600 shadow-lg;
 }
 
 .stats-card {
-    @apply bg-gray-700 rounded-lg p-4 transition-all duration-200;
+  @apply bg-gray-700 rounded-lg p-4 transition-all duration-200;
 }
 
 .stats-card:hover {
-    @apply bg-gray-600;
+  @apply bg-gray-600;
 }
 
 /* Toast notifications */
 .toast {
-    @apply fixed bottom-4 right-4 bg-gray-800 text-white px-4 py-2 rounded shadow-lg transition-opacity duration-300 z-50;
+  @apply fixed bottom-4 right-4 bg-gray-800 text-white px-4 py-2 rounded shadow-lg transition-opacity duration-300 z-50;
 }
 
 /* Loading state */
 .loading {
-    @apply opacity-50 pointer-events-none;
+  @apply opacity-50 pointer-events-none;
+}
+
+/* HTMX specific CSS */
+tr.htmx-swapping td {
+  opacity: 0;
+  transition: opacity 1s ease-out;
+}
+
+/* SWAL overwrites */
+/* Custom SweetAlert2 styles */
+.swal2-popup {
+  background-color: rgb(
+    17 24 39
+  ) !important; /* Example: Change background color */
+}
+
+.swal2-title {
+  color: #fff !important; /* Example: Change title color */
+}
+
+.swal2-content {
+  color: #ccc !important; /* Example: Change content color */
+}
+
+.swal2-confirm {
+  background-color: #444 !important; /* Example: Change confirm button background */
+  color: #fff !important; /* Example: Change confirm button text color */
+}
+
+.swal2-cancel {
+  background-color: #555 !important; /* Example: Change cancel button background */
+  color: #fff !important; /* Example: Change cancel button text color */
 }
