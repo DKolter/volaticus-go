@@ -108,8 +108,6 @@ func (s *Server) RegisterRoutes() http.Handler {
 
 		// Dashboard routes
 		r.Route("/dashboard", func(r chi.Router) {
-			r.Use(jwtauth.Verifier(tokenAuth))
-			r.Use(s.AuthMiddleware(tokenAuth))
 			r.Get("/stats", s.dashboardHandler.HandleGetDashboardStats)
 		})
 	})
