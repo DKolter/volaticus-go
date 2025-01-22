@@ -2,12 +2,13 @@ package auth
 
 import (
 	"encoding/json"
-	"github.com/google/uuid"
 	"log"
 	"net/http"
 	"volaticus-go/internal/context"
 	"volaticus-go/internal/user"
 	"volaticus-go/internal/validation"
+
+	"github.com/google/uuid"
 
 	"github.com/go-chi/chi/v5"
 )
@@ -94,8 +95,8 @@ func (h *Handler) DeleteToken(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	w.Header().Set("HX-Refresh", "true")
+	// w.Header().Set("HX-Refresh", "true")
 
 	// Return success with no content
-	w.WriteHeader(http.StatusNoContent)
+	w.WriteHeader(http.StatusOK)
 }
