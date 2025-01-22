@@ -1,130 +1,122 @@
 package pages
 
-import (
-    userctx "volaticus-go/internal/context"
-)
-
 templ HomePage() {
     @DashboardLayout() {
         <div class="px-4 py-6 sm:px-0">
-            <h1 class="text-2xl font-semibold text-white mb-6">Welcome to Volaticus</h1>
+            <h1 class="text-2xl font-semibold text-white mb-6">Dashboard</h1>
 
-            if user := userctx.GetUserFromContext(ctx); user != nil {
-                            <div class="mb-8">
-                                <h2 class="text-xl font-semibold text-white mb-4">Activity Overview</h2>
-                                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4"
-                                     hx-get="/api/stats"
-                                     hx-trigger="load"
-                                     hx-swap="none"
-                                     hx-on="htmx:afterRequest: {
-                                        const data = JSON.parse(event.detail.xhr.response);
-                                        document.getElementById('total-urls').textContent = data.total_urls;
-                                        document.getElementById('total-clicks').textContent = data.total_clicks;
-                                     }">
-
-                        <!-- URLs Stats -->
-                                                <div class="bg-gray-800 rounded-lg p-5 border border-gray-700 hover:border-indigo-500 transition-colors duration-300">
-                                                    <a href="/url-shortener" class="block">
-                                                        <div class="flex items-center">
-                                                            <div class="p-3 bg-blue-500/10 rounded-lg">
-                                                                <svg class="w-6 h-6 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1"></path>
-                                                                </svg>
-                                                            </div>
-                                                            <div class="ml-4">
-                                                                <h2 id="total-urls" class="text-2xl font-bold text-white">-</h2>
-                                                                <p class="text-gray-400">Active Short URLs</p>
-                                                            </div>
-                                                        </div>
-                                                    </a>
-                                                </div>
-
-                                                <!-- Total Clicks -->
-                                                <div class="bg-gray-800 rounded-lg p-5 border border-gray-700 hover:border-indigo-500 transition-colors duration-300">
-                                                    <a href="/url-shortener" class="block">
-                                                        <div class="flex items-center">
-                                                            <div class="p-3 bg-green-500/10 rounded-lg">
-                                                                <svg class="w-6 h-6 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
-                                                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path>
-                                                                </svg>
-                                                            </div>
-                                                            <div class="ml-4">
-                                                                <h2 id="total-clicks" class="text-2xl font-bold text-white">-</h2>
-                                                                <p class="text-gray-400">Total Clicks</p>
-                                                            </div>
-                                                        </div>
-                                                    </a>
-                                                </div>
-
-                        <!-- API Token Info -->
-                        <div class="bg-gray-800 rounded-lg p-5 border border-gray-700 hover:border-indigo-500 transition-colors duration-300">
-                            <a href="/settings" class="block">
-                                <div class="flex items-center">
-                                    <div class="p-3 bg-purple-500/10 rounded-lg">
-                                        <svg class="w-6 h-6 text-purple-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z"></path>
-                                        </svg>
-                                    </div>
-                                    <div class="ml-4">
-                                        <h2 class="text-lg font-bold text-white">API Tokens</h2>
-                                        <p class="text-gray-400">Manage Access</p>
-                                    </div>
-                                </div>
-                            </a>
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                <!-- Total URLs -->
+                <div class="bg-gray-800 rounded-lg p-5 border border-gray-700 hover:shadow-lg">
+                    <div class="flex items-center">
+                        <div class="p-3 bg-blue-500/10 rounded-lg">
+                            <svg class="w-6 h-6 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1"></path>
+                            </svg>
+                        </div>
+                        <div class="ml-4">
+                            <h2 id="total-urls" class="text-3xl font-bold text-blue-400">-</h2>
+                            <p class="text-gray-400">Active Short URLs</p>
                         </div>
                     </div>
                 </div>
 
-                <!-- Quick Actions & Getting Started -->
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div class="bg-gray-800 rounded-lg p-6 border border-gray-700">
-                        <h3 class="text-lg font-semibold text-white mb-4">Quick Actions</h3>
-                        <div class="space-y-4">
-                            <a href="/upload" class="flex items-center text-gray-300 hover:text-white transition-colors duration-200">
-                                <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"></path>
-                                </svg>
-                                Upload New File
-                            </a>
-                            <a href="/url-shortener" class="flex items-center text-gray-300 hover:text-white transition-colors duration-200">
-                                <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1"></path>
-                                </svg>
-                                Shorten New URL
-                            </a>
-                            <a href="/settings" class="flex items-center text-gray-300 hover:text-white transition-colors duration-200">
-                                <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z"></path>
-                                </svg>
-                                Manage API Tokens
-                            </a>
+                <!-- Total Clicks -->
+                <div class="bg-gray-800 rounded-lg p-5 border border-gray-700 hover:shadow-lg">
+                    <div class="flex items-center">
+                        <div class="p-3 bg-green-500/10 rounded-lg">
+                            <svg class="w-6 h-6 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path>
+                            </svg>
                         </div>
-                    </div>
-
-                    <div class="bg-gray-800 rounded-lg p-6 border border-gray-700">
-                        <h3 class="text-lg font-semibold text-white mb-4">Getting Started</h3>
-                        <div class="space-y-3 text-gray-300">
-                            <p class="flex items-center">
-                                <span class="mr-2">•</span>
-                                Upload files and share them securely
-                            </p>
-                            <p class="flex items-center">
-                                <span class="mr-2">•</span>
-                                Create short URLs with custom codes
-                            </p>
-                            <p class="flex items-center">
-                                <span class="mr-2">•</span>
-                                Track engagement with analytics
-                            </p>
-                            <p class="flex items-center">
-                                <span class="mr-2">•</span>
-                                Generate API tokens for automation
-                            </p>
+                        <div class="ml-4">
+                            <h2 id="total-clicks" class="text-3xl font-bold text-green-400">-</h2>
+                            <p class="text-gray-400">Total Clicks</p>
                         </div>
                     </div>
                 </div>
-            }
+
+                <!-- Uploaded Files -->
+                <div class="bg-gray-800 rounded-lg p-5 border border-gray-700 hover:shadow-lg">
+                    <div class="flex items-center">
+                        <div class="p-3 bg-purple-500/10 rounded-lg">
+                            <svg class="w-6 h-6 text-purple-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"></path>
+                            </svg>
+                        </div>
+                        <div class="ml-4">
+                            <h2 id="file-count" class="text-3xl font-bold text-purple-400">-</h2>
+                            <p class="text-gray-400">Uploaded Files</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Quick Actions & Info Section -->
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mt-8">
+                <!-- Quick Actions -->
+                <div class="bg-gray-800 rounded-lg p-6 border border-gray-700">
+                    <h3 class="text-lg font-semibold text-white mb-4">Quick Actions</h3>
+                    <ul class="space-y-2">
+                        <li><a href="/upload" class="text-blue-400 hover:underline">Upload a File</a></li>
+                        <li><a href="/url-shortener" class="text-blue-400 hover:underline">Create a Short URL</a></li>
+                        <li><a href="/settings" class="text-blue-400 hover:underline">Manage Settings</a></li>
+                    </ul>
+                </div>
+
+                <!-- Getting Started -->
+                <div class="bg-gray-800 rounded-lg p-6 border border-gray-700">
+                    <h3 class="text-lg font-semibold text-white mb-4">Getting Started</h3>
+                    <ul class="list-disc list-inside text-gray-400 mt-2">
+                        <li>Upload and share files securely</li>
+                        <li>Create custom short URLs</li>
+                        <li>Analyze URL performance</li>
+                        <li>Generate API tokens for automation</li>
+                    </ul>
+                </div>
+            </div>
         </div>
+
+        <script>
+            document.addEventListener('DOMContentLoaded', () => {
+
+                fetch('/api/stats', {
+                    method: 'GET',
+                    headers: {
+                        'Authorization': `User-ID: ${localStorage.getItem('userId')}`,
+                        'Content-Type': 'application/json'
+                    }
+                })
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error('API request failed');
+                    }
+                    return response.json();
+                })
+                .then(data => {
+                    console.log('API-Daten:', data);
+
+                    const totalUrlsElement = document.getElementById('total-urls');
+                    const totalClicksElement = document.getElementById('total-clicks');
+                    const fileCountElement = document.getElementById('file-count');
+
+                    if (totalUrlsElement) {
+                        totalUrlsElement.textContent = data.total_urls ?? '-';
+                    }
+
+                    if (totalClicksElement) {
+                        totalClicksElement.textContent = data.total_clicks ?? '-';
+                    }
+
+                    if (fileCountElement) {
+                        fileCountElement.textContent = data.file_count ?? '-';
+                    }
+                })
+                .catch(error => {
+                    console.error('Fehler beim Abrufen der API-Daten:', error);
+                });
+            });
+        </script>
     }
 }

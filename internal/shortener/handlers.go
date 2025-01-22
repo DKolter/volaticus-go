@@ -366,30 +366,42 @@ func getIPAddress(r *http.Request) string {
 
 // HandleGetStats returns simple stats about URLs and clicks
 func (h *Handler) HandleGetStats(w http.ResponseWriter, r *http.Request) {
+	log.Printf("Starting GetStats request")
+
 	user := context.GetUserFromContext(r.Context())
 	if user == nil {
+		log.Printf("GetStats: No user found in context")
 		http.Error(w, "Unauthorized", http.StatusUnauthorized)
 		return
 	}
+	log.Printf("GetStats: Processing request for user %s", user.ID)
 
 	// Get user's URLs
 	urls, err := h.service.GetUserURLs(r.Context(), user.ID)
 	if err != nil {
-		log.Printf("Error getting URLs: %v", err)
+		log.Printf("GetStats: Error getting URLs for user %s: %v", user.ID, err)
 		http.Error(w, "Internal server error", http.StatusInternalServerError)
 		return
 	}
+	log.Printf("GetStats: Found %d URLs for user %s", len(urls), user.ID)
 
 	// Calculate total clicks
 	totalClicks := 0
 	for _, url := range urls {
 		totalClicks += url.AccessCount
+		log.Printf("GetStats: URL %s has %d clicks", url.ShortCode, url.AccessCount)
 	}
 
-	// Return JSON response
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(map[string]interface{}{
+	response := map[string]interface{}{
 		"total_urls":   len(urls),
 		"total_clicks": totalClicks,
-	})
+	}
+	log.Printf("GetStats: Sending response: %+v", response)
+
+	w.Header().Set("Content-Type", "application/json")
+	if err := json.NewEncoder(w).Encode(response); err != nil {
+		log.Printf("GetStats: Error encoding response: %v", err)
+		http.Error(w, "Internal server error", http.StatusInternalServerError)
+		return
+	}
 }
