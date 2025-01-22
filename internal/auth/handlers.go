@@ -95,8 +95,6 @@ func (h *Handler) DeleteToken(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// w.Header().Set("HX-Refresh", "true")
-
-	// Return success with no content
+	// Return success for htmx-delete request
 	w.WriteHeader(http.StatusOK)
 }
