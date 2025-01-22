@@ -1,0 +1,38 @@
+package components
+
+import (
+	"fmt"
+	"volaticus-go/internal/common/models"
+)
+
+templ FileStatsComponent(stats *models.FileStats) {
+	<!-- Stats Overview -->
+	<div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+		<div class="bg-gray-800 rounded-lg p-4 shadow">
+			<div class="text-sm text-gray-400">Total Files</div>
+			<div class="text-2xl text-white">{ fmt.Sprint(stats.TotalFiles) }</div>
+		</div>
+		<div class="bg-gray-800 rounded-lg p-4 shadow">
+			<div class="text-sm text-gray-400">Total Size</div>
+			<div class="text-2xl text-white">{ formatSize(stats.TotalSize) }</div>
+		</div>
+		<div class="bg-gray-800 rounded-lg p-4 shadow">
+			<div class="text-sm text-gray-400">Popular Types</div>
+			<div class="mt-1">
+				for i, t := range stats.PopularTypes {
+					if i < 3 {
+						<span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-indigo-100 text-indigo-800 mr-2">
+							{ t }
+						</span>
+					}
+				}
+			</div>
+		</div>
+		<div class="bg-gray-800 rounded-lg p-4 shadow">
+			<div class="text-sm text-gray-400">Total Views</div>
+			<div class="text-2xl text-white">
+				{ fmt.Sprintf("%d",stats.TotalViews) }
+			</div>
+		</div>
+	</div>
+}

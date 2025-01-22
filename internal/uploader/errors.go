@@ -13,4 +13,5 @@ var (
 	ErrNoFile            = errors.New("no file provided")
 	ErrFileTooLarge      = errors.New("file exceeds maximum allowed size")
 	ErrInvalidURLType    = errors.New("invalid URL type")
+	ErrUnauthorized      = errors.New("unauthorized")
 )

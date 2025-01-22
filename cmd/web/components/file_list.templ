@@ -1,0 +1,298 @@
+package components
+
+import (
+	"fmt"
+	"strings"
+	"time"
+	"volaticus-go/internal/common/models"
+)
+
+type FileListProps struct {
+	Files      []*models.UploadedFile
+	ShowPaging bool
+	Page       int
+	TotalPages int
+	EmptyState string
+}
+
+templ FileListComponent(props FileListProps) {
+	<div id="file-list" class="mt-4">
+		if len(props.Files) == 0 {
+			@noFilesFound()
+		} else {
+			<div class="bg-gray-800 rounded-lg overflow-hidden shadow">
+				<table class="min-w-full divide-y divide-gray-700">
+					<thead class="bg-gray-700">
+						<tr>
+							<th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase">File Name</th>
+							<th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase">Type</th>
+							<th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase">Size</th>
+							<th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase">Views</th>
+							<th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase">Uploaded</th>
+							<th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase">Actions</th>
+						</tr>
+					</thead>
+					<tbody class="divide-y divide-gray-700 bg-gray-800">
+						for _, file := range props.Files {
+							<tr class="hover:bg-gray-700 transition-colors" hx-confirm="">
+								<td class="px-6 py-4 whitespace-nowrap text-sm text-gray-300">
+									<div class="flex items-center">
+										@getFileIcon(file.MimeType)
+										<span class="ml-2 truncate max-w-xs">{ file.OriginalName }</span>
+									</div>
+								</td>
+								<td class="px-6 py-4 whitespace-nowrap text-sm text-gray-300">{ file.MimeType }</td>
+								<td class="px-6 py-4 whitespace-nowrap text-sm text-gray-300">{ formatSize(int64(file.FileSize)) }</td>
+								<td class="px-6 py-4 whitespace-nowrap text-sm text-gray-300">{ fmt.Sprint(file.AccessCount) }</td>
+								<td class="px-6 py-4 whitespace-nowrap text-sm text-gray-300">
+									<div class="flex flex-col">
+										<span>{ formatTime(file.CreatedAt) }</span>
+										<span class="text-xs text-gray-500">{ formatTimeAgo(file.CreatedAt) }</span>
+									</div>
+								</td>
+								<td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
+									<div class="flex space-x-3">
+										<a
+											href={ templ.SafeURL(fmt.Sprintf("/f/%s", file.URLValue)) }
+											target="_blank"
+											class="text-indigo-400 hover:text-indigo-300"
+										>
+											@EyeIcon()
+										</a>
+										<button
+											class="text-indigo-400 hover:text-indigo-300"
+											onClick={ copyToClipboard(fmt.Sprintf("/f/%s", file.URLValue)) }
+										>
+											@ClipboardIcon()
+										</button>
+										<button
+											class="text-red-400 hover:text-red-300"
+											hx-delete={ fmt.Sprintf("/files/%s", file.ID) }
+											hx-confirm="Are you sure you want to delete this file?"
+											hx-target="closest tr"
+											hx-swap="outerHTML swap:1s"
+											hx-headers='{"HX-Trigger": "fileDeleted"}'
+										>
+											@TrashIcon()
+										</button>
+									</div>
+								</td>
+							</tr>
+						}
+					</tbody>
+				</table>
+				if props.ShowPaging && props.TotalPages > 1 {
+					<div class="bg-gray-700 px-4 py-3 flex items-center justify-between border-t border-gray-600 sm:px-6">
+						<div class="flex-1 flex justify-between sm:hidden">
+							<button
+								if props.Page > 1 {
+									hx-get={ fmt.Sprintf("/files/list?page=%d", props.Page-1) }
+									hx-target="#file-list"
+									class="relative inline-flex items-center px-4 py-2 border border-gray-600 text-sm font-medium rounded-md text-gray-300 bg-gray-800 hover:bg-gray-700"
+								} else {
+									class="relative inline-flex items-center px-4 py-2 border border-gray-600 text-sm font-medium rounded-md text-gray-500 bg-gray-800 cursor-not-allowed"
+									disabled
+								}
+							>
+								Previous
+							</button>
+							<button
+								if props.Page < props.TotalPages {
+									hx-get={ fmt.Sprintf("/files/list?page=%d", props.Page+1) }
+									hx-target="#file-list"
+									class="ml-3 relative inline-flex items-center px-4 py-2 border border-gray-600 text-sm font-medium rounded-md text-gray-300 bg-gray-800 hover:bg-gray-700"
+								} else {
+									class="ml-3 relative inline-flex items-center px-4 py-2 border border-gray-600 text-sm font-medium rounded-md text-gray-500 bg-gray-800 cursor-not-allowed"
+									disabled
+								}
+							>
+								Next
+							</button>
+						</div>
+						<div class="hidden sm:flex-1 sm:flex sm:items-center sm:justify-between">
+							<div>
+								<p class="text-sm text-gray-400">
+									Showing
+									<span class="font-medium">{ fmt.Sprint((props.Page-1)*10 + 1) } </span>
+									to
+									<span class="font-medium">{ fmt.Sprint(min(props.Page*10, len(props.Files))) } </span>
+									of
+									<span class="font-medium">{ fmt.Sprint(len(props.Files)) } </span>
+									results
+								</p>
+							</div>
+							<nav class="relative z-0 inline-flex rounded-md shadow-sm -space-x-px" aria-label="Pagination">
+								for i := 1; i <= props.TotalPages; i++ {
+									<button
+										hx-get={ fmt.Sprintf("/files/list?page=%d", i) }
+										hx-target="#file-list"
+										class={
+											"relative inline-flex items-center px-4 py-2 border text-sm font-medium",
+											templ.KV("bg-gray-700 border-gray-600 text-white", i == props.Page),
+											templ.KV("bg-gray-800 border-gray-600 text-gray-300 hover:bg-gray-700", i != props.Page),
+										}
+									>
+										{ fmt.Sprint(i) }
+									</button>
+								}
+							</nav>
+						</div>
+					</div>
+				}
+			</div>
+		}
+	</div>
+}
+
+templ noFilesFound() {
+	<div class="text-center py-12">
+		<svg class="mx-auto h-12 w-12 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
+			<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 13h6m-3-3v6m-9 1V7a2 2 0 012-2h6l2 2h6a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2z"></path>
+		</svg>
+		<h3 class="mt-2 text-sm font-medium text-gray-300">No files uploaded</h3>
+		<p class="mt-1 text-sm text-gray-500">Get started by uploading your first file.</p>
+	</div>
+}
+
+templ getFileIcon(mimeType string) {
+	<div class="w-5 h-5 flex-shrink-0">
+		switch  {
+			case strings.HasPrefix(mimeType, "image/"):
+				// Images (if i put that comment one line above, it breaks the code. I love templ.)
+				<svg class="w-5 h-5 text-blue-400" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+					<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"></path>
+				</svg>
+				// Videos
+			case strings.HasPrefix(mimeType, "video/"):
+				<svg class="w-5 h-5 text-red-400" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+					<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"></path>
+				</svg>
+				// Audio
+			case strings.HasPrefix(mimeType, "audio/"):
+				<svg class="w-5 h-5 text-yellow-400" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+					<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 10l12-3"></path>
+				</svg>
+				// Documents
+			case mimeType == "application/pdf":
+				<svg class="w-5 h-5 text-red-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+					<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z"></path>
+				</svg>
+			case mimeType == "application/msword" || strings.HasPrefix(mimeType, "application/vnd.openxmlformats-officedocument.wordprocessingml"):
+				<svg class="w-5 h-5 text-blue-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+					<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z"></path>
+				</svg>
+			case mimeType == "application/vnd.ms-excel" || strings.HasPrefix(mimeType, "application/vnd.openxmlformats-officedocument.spreadsheetml"):
+				<svg class="w-5 h-5 text-green-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+					<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z"></path>
+				</svg>
+			case mimeType == "application/vnd.ms-powerpoint" || strings.HasPrefix(mimeType, "application/vnd.openxmlformats-officedocument.presentationml"):
+				<svg class="w-5 h-5 text-orange-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+					<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z"></path>
+				</svg>
+				// Code Files
+			case mimeType == "text/html" || mimeType == "text/css" || mimeType == "text/javascript" || mimeType == "application/json" || mimeType == "application/xml":
+				<svg class="w-5 h-5 text-purple-400" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+					<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4"></path>
+				</svg>
+				// Text Files
+			case strings.HasPrefix(mimeType, "text/"):
+				<svg class="w-5 h-5 text-blue-400" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+					<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+				</svg>
+				// Archives
+			case mimeType == "application/zip" || mimeType == "application/x-tar" || mimeType == "application/x-gzip":
+				<svg class="w-5 h-5 text-yellow-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+					<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z"></path>
+				</svg>
+				// CSV/Spreadsheets
+			case mimeType == "text/csv":
+				<svg class="w-5 h-5 text-green-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+					<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 10h16M4 14h16M4 18h16"></path>
+				</svg>
+				// Executables
+			case mimeType == "application/octet-stream":
+				<svg class="w-5 h-5 text-red-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+					<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"></path>
+					<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
+				</svg>
+				// eBooks
+			case mimeType == "application/epub+zip":
+				<svg class="w-5 h-5 text-purple-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+					<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"></path>
+				</svg>
+				// Markdown
+			case mimeType == "text/markdown":
+				<svg class="w-5 h-5 text-gray-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+					<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z"></path>
+					<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 16h-4m2-6V8m-3 4h6"></path>
+				</svg>
+				// Default (Generic File)
+			default:
+				<svg class="w-5 h-5 text-gray-400" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+					<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z"></path>
+				</svg>
+		}
+	</div>
+}
+
+script copyToClipboard(path string) {
+    const url = window.location.origin + path;
+    navigator.clipboard.writeText(url).then(() => {
+        showToast("Link copied to clipboard", "success");
+    }).catch(() => {
+        showToast("Failed to copy link", "error");
+    });
+}
+
+func formatTime(t time.Time) string {
+	return t.Format("2006-01-02 15:04")
+}
+
+func formatTimeAgo(t time.Time) string {
+	duration := time.Since(t)
+	if duration < time.Hour {
+		minutes := int(duration.Minutes())
+		if minutes < 1 {
+			return "just now"
+		}
+		if minutes == 1 {
+			return "1 minute ago"
+		}
+		return fmt.Sprintf("%d minutes ago", minutes)
+	}
+	if duration < time.Hour*24 {
+		hours := int(duration.Hours())
+		if hours == 1 {
+			return "1 hour ago"
+		}
+		return fmt.Sprintf("%d hours ago", hours)
+	}
+	if duration < time.Hour*24*7 {
+		days := int(duration.Hours() / 24)
+		if days == 1 {
+			return "1 day ago"
+		}
+		return fmt.Sprintf("%d days ago", days)
+	}
+	return t.Format("Jan 2")
+}
+
+func formatSize(size int64) string {
+	const unit = 1024
+	if size < unit {
+		return fmt.Sprintf("%d B", size)
+	}
+	div, exp := int64(unit), 0
+	for n := size / unit; n >= unit; n /= unit {
+		div *= unit
+		exp++
+	}
+	return fmt.Sprintf("%.1f %cB", float64(size)/float64(div), "KMGTPE"[exp])
+}
+
+func min(a, b int) int {
+	if a < b {
+		return a
+	}
+	return b
+}

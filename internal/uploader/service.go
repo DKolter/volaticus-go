@@ -3,7 +3,6 @@ package uploader
 import (
 	"context"
 	"fmt"
-	"github.com/google/uuid"
 	"io"
 	"log"
 	"mime/multipart"
@@ -14,6 +13,8 @@ import (
 	"time"
 	"volaticus-go/internal/common/models"
 	"volaticus-go/internal/config"
+
+	"github.com/google/uuid"
 )
 
 type Service struct {
@@ -214,6 +215,34 @@ func (s *Service) DeleteFile(filename string) error {
 	return nil
 }
 
+// DeleteFileByID deletes the file from the database and disk by ID
+func (s *Service) DeleteFileByID(ctx context.Context, fileID, userID uuid.UUID) error {
+	// Get file details first to get the filename
+	file, err := s.repo.GetByID(ctx, fileID)
+	if err != nil {
+		return fmt.Errorf("getting file details: %w", err)
+	}
+
+	// Check if the file belongs to the user
+	if file.UserID != userID {
+		return ErrUnauthorized
+	}
+
+	// Delete from database
+	if err := s.repo.Delete(ctx, fileID); err != nil {
+		return fmt.Errorf("deleting file from database: %w", err)
+	}
+
+	// Delete physical file
+	path := filepath.Join(s.config.UploadDirectory, file.UniqueFilename)
+	if err := os.Remove(path); err != nil && !os.IsNotExist(err) {
+		// Log but don't fail if physical file is already gone
+		log.Printf("Error deleting physical file %s: %v", path, err)
+	}
+
+	return nil
+}
+
 // CleanupExpiredFiles retrieves and deletes expired files.
 func (s *Service) CleanupExpiredFiles(ctx context.Context) error {
 	files, err := s.repo.GetExpiredFiles(ctx)
@@ -236,7 +265,7 @@ func (s *Service) CleanupExpiredFiles(ctx context.Context) error {
 	return nil
 }
 
-// CleanupOrphanedFiles deletes files in the uploadDir that are not in the database.
+// CleanupOrphanedFiles deletes files in the uploadDir that are not in the database and vice versa.
 func (s *Service) CleanupOrphanedFiles(ctx context.Context) error {
 	filesInDir, err := os.ReadDir(s.config.UploadDirectory)
 	if err != nil {
@@ -249,10 +278,11 @@ func (s *Service) CleanupOrphanedFiles(ctx context.Context) error {
 	}
 
 	fileMap := make(map[string]bool)
-	for _, file := range filesInDB {
-		fileMap[file.UniqueFilename] = true
+	for _, file := range filesInDir {
+		fileMap[file.Name()] = true
 	}
-	var deletedCount = 0
+
+	var deletedCount int
 	for _, file := range filesInDir {
 		if !fileMap[file.Name()] {
 			if err := s.DeleteFile(file.Name()); err != nil {
@@ -266,5 +296,43 @@ func (s *Service) CleanupOrphanedFiles(ctx context.Context) error {
 		log.Printf("Deleted %d orphaned files", deletedCount)
 	}
 
+	var missingFiles []string
+	for _, file := range filesInDB {
+		if !fileMap[file.UniqueFilename] {
+			missingFiles = append(missingFiles, file.UniqueFilename)
+		}
+	}
+	if len(missingFiles) > 0 {
+		log.Printf("Files in database but missing in directory: %v", missingFiles)
+		for _, file := range missingFiles {
+			if err := s.repo.DeleteByUniqueName(ctx, file); err != nil {
+				log.Printf("Error deleting database entry for missing file %s: %v", file, err)
+			}
+		}
+	}
+
 	return nil
+}
+
+// Update the GetUserFiles method to include stats
+func (s *Service) GetUserFiles(ctx context.Context, userID uuid.UUID, limit, offset int) ([]*models.UploadedFile, error) {
+	files, err := s.repo.GetUserFiles(ctx, userID, limit, offset)
+	if err != nil {
+		return nil, fmt.Errorf("getting user files: %w", err)
+	}
+
+	return files, nil
+}
+
+func (s *Service) GetUserFilesCount(ctx context.Context, userID uuid.UUID) (int, error) {
+	count, err := s.repo.GetUserFilesCount(ctx, userID)
+	if err != nil {
+		return 0, fmt.Errorf("getting user files count: %w", err)
+	}
+	return count, nil
+}
+
+// GetFileStats retrieves statistics about uploaded files
+func (s *Service) GetFileStats(ctx context.Context, userID uuid.UUID) (*models.FileStats, error) {
+	return s.repo.GetFileStats(ctx, userID)
 }

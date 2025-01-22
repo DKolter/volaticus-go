@@ -72,14 +72,6 @@ script generateConfig(token string, name string) {
     showGeneratorModal(token, name);
 }
 
-script copyToClipboard(text string) {
-    navigator.clipboard.writeText(text).then(() => {
-        showToast('Token copied to clipboard', 'success');
-    }).catch(() => {
-        showToast('Failed to copy token', 'error');
-    });
-}
-
 templ formatDateTime(t *time.Time) {
 	if t == nil {
 		Never

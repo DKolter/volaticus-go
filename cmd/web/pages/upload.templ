@@ -82,11 +82,6 @@ templ UploadPage() {
 			<h1 class="text-2xl font-semibold text-white">Upload Files</h1>
 			<div class="mt-4">
 				@UploadForm()
-				<!-- Recent Uploads Section -->
-				<div class="mt-8">
-					<h2 class="text-xl font-semibold text-white mb-4">Recent Uploads</h2>
-					<div id="recent-uploads" hx-get="/api/files" hx-trigger="load, uploaded from:body"></div>
-				</div>
 			</div>
 		</div>
 		<style>
