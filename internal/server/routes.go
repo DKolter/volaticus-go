@@ -99,7 +99,7 @@ func (s *Server) RegisterRoutes() http.Handler {
 			})
 		})
 
-		r.Get("/api/stats", s.shortenerHandler.HandleGetStats)
+		r.Get("/stats", s.shortenerHandler.HandleGetStats)
 	})
 
 	// API routes with token authentication
