@@ -2,43 +2,53 @@ package pages
 
 templ UploadForm() {
 	<form
-		class="max-w-md"
+		class="max-w-3xl mx-auto"
 		hx-post="/upload"
 		hx-encoding="multipart/form-data"
 		hx-indicator="#upload-indicator"
 		hx-target="#upload-result"
+		id="upload-form"
 	>
-		<div class="space-y-4">
-			<!-- File Input -->
-			<div>
-				<label class="block text-sm font-medium text-gray-300 mb-2">
-					Choose File
-				</label>
-				<input
-					type="file"
-					name="file"
-					hx-post="/upload/verify"
-					hx-trigger="change"
-					hx-encoding="multipart/form-data"
-					hx-target="#file-validation"
-					hx-swap="innerHTML"
-					class="block w-full text-sm text-gray-400
-                        file:mr-4 file:py-2 file:px-4
-                        file:rounded-md file:border-0
-                        file:text-sm file:font-semibold
-                        file:bg-indigo-500 file:text-white
-                        hover:file:bg-indigo-400"
-				/>
-				<div id="file-validation" class="mt-2"></div>
+		<div class="space-y-6">
+			<!-- Drag & Drop File Area -->
+			<div class="relative">
+				<div
+					id="dropzone"
+					class="relative flex flex-col items-center justify-center w-full min-h-[200px] border-2 border-dashed rounded-lg cursor-pointer bg-gray-800 hover:bg-gray-700 border-gray-600 group transition-all duration-200"
+					onclick="document.getElementById('file-input').click()"
+				>
+					<div
+						id="drag-overlay"
+						class="absolute inset-0 bg-indigo-600 bg-opacity-40 rounded-lg opacity-0 pointer-events-none transition-opacity duration-200"
+					></div>
+					<div class="flex flex-col items-center justify-center pt-5 pb-6">
+						<svg class="w-12 h-12 mb-4 text-gray-400 group-hover:text-gray-300" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+							<path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"></path>
+						</svg>
+						<p class="mb-2 text-lg text-gray-400"><span class="font-semibold">Click to upload</span> or drag and drop</p>
+					</div>
+					<input
+						type="file"
+						name="file"
+						id="file-input"
+						hx-post="/upload/verify"
+						hx-trigger="change"
+						hx-encoding="multipart/form-data"
+						hx-target="#file-validation"
+						hx-swap="innerHTML"
+						class="hidden"
+					/>
+				</div>
+				<div id="file-validation" class="mt-4"></div>
 			</div>
 			<!-- URL Type Selection -->
-			<div>
+			<div class="bg-gray-800 p-6 rounded-lg border border-gray-700">
 				<label class="block text-sm font-medium text-gray-300 mb-2">
 					URL Type
 				</label>
 				<select
 					name="url_type"
-					class="block w-full rounded-md border-0 bg-gray-800 py-1.5 text-white shadow-sm ring-1 ring-inset ring-white/10 focus:ring-2 focus:ring-inset focus:ring-indigo-500 sm:text-sm sm:leading-6"
+					class="w-full rounded-md border-0 bg-gray-700 py-2 pl-3 pr-10 text-white shadow-sm ring-1 ring-inset ring-gray-600 focus:ring-2 focus:ring-indigo-500 sm:text-sm"
 				>
 					<option value="default">Default (Timestamp)</option>
 					<option value="original_name">Original Filename</option>
@@ -47,22 +57,22 @@ templ UploadForm() {
 					<option value="uuid">UUID</option>
 					<option value="gfycat">GfyCat Style</option>
 				</select>
-				<p class="mt-1 text-sm text-gray-500">
+				<p class="mt-2 text-sm text-gray-400">
 					Choose how your file URL will be generated
 				</p>
 			</div>
-			<!-- Upload Button and Indicator -->
-			<div class="flex items-center space-x-4">
+			<!-- Upload Button and Progress -->
+			<div class="flex items-center justify-between">
 				<button
 					type="submit"
 					id="upload-button"
 					disabled
-					class="rounded-md bg-indigo-500 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-indigo-400 disabled:bg-gray-500 disabled:cursor-not-allowed"
+					class="flex items-center justify-center px-4 py-2 rounded-md bg-indigo-500 text-sm font-semibold text-white shadow-sm hover:bg-indigo-400 disabled:bg-gray-500 disabled:cursor-not-allowed transition-colors duration-200"
 				>
-					Upload
+					<span>Upload File</span>
 				</button>
-				<div id="upload-indicator" class="htmx-indicator flex items-center">
-					<svg class="animate-spin h-5 w-5 text-indigo-500 mr-2" fill="none" viewBox="0 0 24 24">
+				<div id="upload-indicator" class="htmx-indicator flex items-center gap-2">
+					<svg class="animate-spin h-5 w-5 text-indigo-500" fill="none" viewBox="0 0 24 24">
 						<circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
 						<path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
 					</svg>
@@ -73,52 +83,69 @@ templ UploadForm() {
 			<div id="upload-result" class="mt-4"></div>
 		</div>
 	</form>
+	<script>
+        // Drag and drop handling
+        const dropzone = document.getElementById('dropzone');
+        const dragOverlay = document.getElementById('drag-overlay');
+        const fileInput = document.getElementById('file-input');
+
+        // Prevent default drag behaviors
+        ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
+            dropzone.addEventListener(eventName, preventDefaults, false);
+            document.body.addEventListener(eventName, preventDefaults, false);
+        });
+
+        // Handle drag/drop visual feedback
+        ['dragenter', 'dragover'].forEach(eventName => {
+            dropzone.addEventListener(eventName, highlight, false);
+        });
+
+        ['dragleave', 'drop'].forEach(eventName => {
+            dropzone.addEventListener(eventName, unhighlight, false);
+        });
+
+        // Handle dropped files
+        dropzone.addEventListener('drop', handleDrop, false);
+
+        function preventDefaults (e) {
+            e.preventDefault();
+            e.stopPropagation();
+        }
+
+        function highlight(e) {
+            dragOverlay.style.opacity = '1';
+        }
+
+        function unhighlight(e) {
+            dragOverlay.style.opacity = '0';
+        }
+
+        function handleDrop(e) {
+            const dt = e.dataTransfer;
+            const files = dt.files;
+
+            if (files.length > 0) {
+                fileInput.files = files;
+                // Trigger HTMX file validation
+                htmx.trigger(fileInput, 'change');
+            }
+        }
+    </script>
 }
 
-// Update the upload page to use this form
 templ UploadPage() {
 	@DashboardLayout() {
 		<div class="px-4 py-6 sm:px-0">
-			<h1 class="text-2xl font-semibold text-white">Upload Files</h1>
-			<div class="mt-4">
+			<div class="flex justify-between items-center mb-6">
+				<h1 class="text-2xl font-semibold text-white">Upload Files</h1>
+				<div class="text-sm text-gray-400">
+					Share files securely with customizable URLs and expiration dates
+				</div>
+			</div>
+			<div class="max-w-3xl mx-auto">
 				@UploadForm()
 			</div>
 		</div>
-		<style>
-			.htmx-indicator {
-				display: none;
-			}
-			.htmx-request .htmx-indicator {
-				display: flex;
-			}
-			.htmx-request.htmx-indicator {
-				display: flex;
-			}
-		</style>
-		<script>
-			// Handle successful upload
-			document.body.addEventListener('htmx:afterRequest', function(evt) {
-				if (evt.detail.successful && evt.detail.pathInfo.requestPath === '/api/upload') {
-					// Clear the file input
-					document.querySelector('input[type="file"]').value = '';
-					// Clear the validation message
-					document.querySelector('#file-validation').innerHTML = '';
-					// Disable the upload button
-					document.querySelector('#upload-button').disabled = true;
-					// Trigger event to refresh recent uploads
-					htmx.trigger('#recent-uploads', 'uploaded');
-				}
-			});
-
-			// Handle file validation complete
-			document.body.addEventListener('htmx:afterRequest', function(evt) {
-				if (evt.detail.successful && evt.detail.pathInfo.requestPath === '/upload/verify') {
-					const button = document.querySelector('#upload-button');
-					// If the validation response contains an error message, disable the button
-					button.disabled = evt.detail.xhr.response.includes('error');
-				}
-			});
-		</script>
 	}
 }
 
