@@ -25,8 +25,12 @@ templ Base() {
 			<script src="assets/js/htmx.min.js"></script>
 			<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.7.0/chart.min.js"></script>
 			<script src="https://unpkg.com/htmx.org/dist/ext/json-enc.js"></script>
-			<link href="assets/css/output.css" rel="stylesheet"/>
 			<link rel="icon" href="assets/favicon.ico"/>
+			// Include SweetAlert2
+			<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@sweetalert2/theme-dark@5/dark.css"/>
+			<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11/dist/sweetalert2.min.js"></script>
+			// Include Tailwind CSS & our custom styles
+			<link href="assets/css/output.css" rel="stylesheet"/>
 		</head>
 		<body class="h-full">
 			{ children... }
@@ -94,7 +98,34 @@ templ Base() {
                             }
                         }, 300);
                     }, duration);
-                }
+            }
+            </script>
+			<script>
+                document.addEventListener("htmx:confirm", function(e) {
+                    console.log("htmx:confirm event triggered");
+                    // Check if the element that triggered the request has a hx-confirm attribute
+                    if (!e.detail.target.hasAttribute('hx-confirm')) return;
+
+                    console.log("hx-confirm attribute found");
+                    // Prevent the default behavior
+                    e.preventDefault();
+
+                    // Display the SweetAlert2 confirmation dialog
+                    Swal.fire({
+                        title: "Proceed?",
+                        text: `${e.detail.question}`,
+                        icon: "warning",
+                        showCancelButton: true,
+                        draggable: true,
+                        confirmButtonText: "Yes, proceed!",
+                        cancelButtonText: "Cancel"
+                    }).then(function(result) {
+                        if (result.isConfirmed) {
+                            // If the user confirms, manually issue the request
+                            e.detail.issueRequest(true); // true to skip the built-in window.confirm()
+                        }
+                    });
+                });
             </script>
 		</body>
 	</html>

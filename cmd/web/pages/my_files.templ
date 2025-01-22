@@ -1,14 +1,42 @@
 package pages
 
+import "volaticus-go/cmd/web/components"
+
 templ FilesPage() {
-    @DashboardLayout() {
-        <div class="px-4 py-6 sm:px-0">
-            <h1 class="text-2xl font-semibold text-white">My Files</h1>
-            <div class="mt-4">
-                <div class="rounded-lg border border-gray-700 px-4 py-5">
-                    <p class="text-gray-400">No files uploaded yet.</p>
-                </div>
-            </div>
-        </div>
-    }
+	@DashboardLayout() {
+		<div class="px-4 py-6 sm:px-0">
+			<div class="flex justify-between items-center mb-6">
+				<h1 class="text-2xl font-semibold text-white">My Files</h1>
+				<div class="text-sm text-gray-400">
+					Manage your uploaded files
+				</div>
+			</div>
+			<!-- File List with loading states -->
+			<div hx-get="/files/stats" hx-trigger="load, fileDeleted from:body"></div>
+			<div
+				id="file-list"
+				hx-get="/files/list"
+				hx-trigger="load"
+				hx-swap="outerHTML"
+				hx-indicator="#loading-indicator"
+				class="mt-4"
+			>
+				<div id="loading-indicator" class="htmx-indicator">
+					@components.FileLoadingState()
+				</div>
+			</div>
+		</div>
+		<script>
+            // Listen for file deleted event
+            document.body.addEventListener('fileDeleted', function() {
+                showToast('File deleted successfully', 'success');
+            });
+
+            // Listen for HTMX errors
+            document.body.addEventListener('htmx:error', function(evt) {
+                console.error('Error loading files:', evt.detail.error);
+                showToast('Error loading files', 'error');
+            });
+        </script>
+	}
 }

@@ -135,3 +135,11 @@ type CreateURLResponse struct {
 	ExpiresAt   *time.Time `json:"expires_at,omitempty"`
 	IsVanity    bool       `json:"is_vanity"`
 }
+
+// FileStats represents statistics about uploaded files
+type FileStats struct {
+	TotalFiles   int      `db:"total_files"`   // Total number of files uploaded
+	TotalSize    int64    `db:"total_size"`    // Total size of all files in bytes
+	TotalViews   int64    `db:"total_views"`   // Total number of views
+	PopularTypes []string `db:"popular_types"` // Most common file types
+}

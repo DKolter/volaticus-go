@@ -1,13 +1,14 @@
 package server
 
 import (
+	"log"
+	"net/http"
+	"volaticus-go/cmd/web"
+
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
 	"github.com/go-chi/cors"
 	"github.com/go-chi/jwtauth/v5"
-	"log"
-	"net/http"
-	"volaticus-go/cmd/web"
 )
 
 func (s *Server) RegisterRoutes() http.Handler {
@@ -65,10 +66,16 @@ func (s *Server) RegisterRoutes() http.Handler {
 
 		// Main pages
 		r.Get("/", s.handleHome)
-		r.Get("/files", s.handleFiles)
 
 		// Logout
 		r.Get("/logout", s.userHandler.HandleLogout)
+
+		r.Route("/files", func(r chi.Router) {
+			r.Get("/", s.handleFiles)
+			r.Get("/list", s.fileHandler.HandleFilesList)
+			r.Get("/stats", s.fileHandler.HandleGetFileStats)
+			r.Delete("/{fileID}", s.fileHandler.HandleDeleteFile)
+		})
 
 		// Upload routes
 		r.Route("/upload", func(r chi.Router) {

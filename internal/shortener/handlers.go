@@ -2,8 +2,6 @@ package shortener
 
 import (
 	"encoding/json"
-	"github.com/go-chi/chi/v5"
-	"github.com/google/uuid"
 	"log"
 	"net/http"
 	"strings"
@@ -13,6 +11,9 @@ import (
 	"volaticus-go/internal/common/models"
 	"volaticus-go/internal/context"
 	"volaticus-go/internal/validation"
+
+	"github.com/go-chi/chi/v5"
+	"github.com/google/uuid"
 )
 
 type Handler struct {
@@ -210,8 +211,8 @@ func (h *Handler) HandleDeleteURL(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	w.Header().Set("HX-Trigger", "urlsChanged")
-	w.WriteHeader(http.StatusNoContent)
+	// w.Header().Set("HX-Trigger", "urlsChanged")
+	w.WriteHeader(http.StatusOK)
 }
 
 // HandleUpdateExpiration handles updating the URL expiration
