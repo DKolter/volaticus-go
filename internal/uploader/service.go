@@ -17,19 +17,30 @@ import (
 	"github.com/google/uuid"
 )
 
-type Service struct {
+type Service interface {
+	UploadFile(ctx context.Context, req *UploadRequest) (*models.CreateFileResponse, error)
+	GetFile(ctx context.Context, fileurl string) (*models.UploadedFile, error)
+	GetUserFiles(ctx context.Context, userID uuid.UUID, limit, offset int) ([]*models.UploadedFile, error)
+	GetUserFilesCount(ctx context.Context, userID uuid.UUID) (int, error)
+	DeleteFileByID(ctx context.Context, fileID, userID uuid.UUID) error
+	GetFileStats(ctx context.Context, userID uuid.UUID) (*models.FileStats, error)
+	ValidateFile(ctx context.Context, file multipart.File, header *multipart.FileHeader) *FileValidationResult
+	CleanupExpiredFiles(ctx context.Context) error
+}
+
+type service struct {
 	repo         Repository
 	config       config.Config
 	urlGenerator *URLGenerator
 }
 
-func NewService(repo Repository, config *config.Config) *Service {
+func NewService(repo Repository, config *config.Config) *service {
 	// Make sure that directory exists
 	if err := os.MkdirAll(config.UploadDirectory, 0755); err != nil {
 		log.Fatalf("Failed to create upload directory: %v", err)
 	}
 
-	return &Service{
+	return &service{
 		repo:         repo,
 		config:       *config,
 		urlGenerator: NewURLGenerator(),
@@ -54,7 +65,7 @@ type FileValidationResult struct {
 }
 
 // VerifyFile checks if the file meets upload requirements
-func (s *Service) VerifyFile(ctx context.Context, file multipart.File, header *multipart.FileHeader) *FileValidationResult {
+func (s *service) VerifyFile(ctx context.Context, file multipart.File, header *multipart.FileHeader) *FileValidationResult {
 	result := &FileValidationResult{
 		FileName: header.Filename,
 		FileSize: header.Size,
@@ -90,7 +101,7 @@ func (s *Service) VerifyFile(ctx context.Context, file multipart.File, header *m
 	return result
 }
 
-func (s *Service) UploadFile(ctx context.Context, req *UploadRequest) (*models.CreateFileResponse, error) {
+func (s *service) UploadFile(ctx context.Context, req *UploadRequest) (*models.CreateFileResponse, error) {
 	// Verify file first
 	validation := s.VerifyFile(ctx, req.File, req.Header)
 	if !validation.IsValid {
@@ -151,7 +162,7 @@ func (s *Service) UploadFile(ctx context.Context, req *UploadRequest) (*models.C
 }
 
 // GetFile retrieves file information using the urlvalue
-func (s *Service) GetFile(ctx context.Context, fileurl string) (*models.UploadedFile, error) {
+func (s *service) GetFile(ctx context.Context, fileurl string) (*models.UploadedFile, error) {
 
 	file, err := s.repo.GetByURLValue(ctx, fileurl)
 	if err != nil {
@@ -167,7 +178,7 @@ func (s *Service) GetFile(ctx context.Context, fileurl string) (*models.Uploaded
 }
 
 // saveFile saves the uploaded file to disk
-func (s *Service) saveFile(file multipart.File, filename string) error {
+func (s *service) saveFile(file multipart.File, filename string) error {
 	dst, err := os.Create(filepath.Join(s.config.UploadDirectory, filename))
 	if err != nil {
 		return fmt.Errorf("creating file: %w", err)
@@ -186,7 +197,7 @@ func (s *Service) saveFile(file multipart.File, filename string) error {
 	return nil
 }
 
-func StartExpiredFilesWorker(ctx context.Context, svc *Service, interval time.Duration) {
+func StartExpiredFilesWorker(ctx context.Context, svc *service, interval time.Duration) {
 	// Initial cleanup
 	if err := svc.CleanupExpiredFiles(ctx); err != nil {
 		log.Printf("Error cleaning up expired files: %v", err)
@@ -207,7 +218,7 @@ func StartExpiredFilesWorker(ctx context.Context, svc *Service, interval time.Du
 }
 
 // DeleteFile deletes the physical file from the disk
-func (s *Service) DeleteFile(filename string) error {
+func (s *service) DeleteFile(filename string) error {
 	filePath := filepath.Join(s.config.UploadDirectory, filename)
 	if err := os.Remove(filePath); err != nil {
 		return fmt.Errorf("deleting file: %w", err)
@@ -216,7 +227,7 @@ func (s *Service) DeleteFile(filename string) error {
 }
 
 // DeleteFileByID deletes the file from the database and disk by ID
-func (s *Service) DeleteFileByID(ctx context.Context, fileID, userID uuid.UUID) error {
+func (s *service) DeleteFileByID(ctx context.Context, fileID, userID uuid.UUID) error {
 	// Get file details first to get the filename
 	file, err := s.repo.GetByID(ctx, fileID)
 	if err != nil {
@@ -244,7 +255,7 @@ func (s *Service) DeleteFileByID(ctx context.Context, fileID, userID uuid.UUID) 
 }
 
 // CleanupExpiredFiles retrieves and deletes expired files.
-func (s *Service) CleanupExpiredFiles(ctx context.Context) error {
+func (s *service) CleanupExpiredFiles(ctx context.Context) error {
 	files, err := s.repo.GetExpiredFiles(ctx)
 	if err != nil {
 		return err
@@ -266,7 +277,7 @@ func (s *Service) CleanupExpiredFiles(ctx context.Context) error {
 }
 
 // CleanupOrphanedFiles deletes files in the uploadDir that are not in the database and vice versa.
-func (s *Service) CleanupOrphanedFiles(ctx context.Context) error {
+func (s *service) CleanupOrphanedFiles(ctx context.Context) error {
 	filesInDir, err := os.ReadDir(s.config.UploadDirectory)
 	if err != nil {
 		return fmt.Errorf("reading upload directory: %w", err)
@@ -315,7 +326,7 @@ func (s *Service) CleanupOrphanedFiles(ctx context.Context) error {
 }
 
 // Update the GetUserFiles method to include stats
-func (s *Service) GetUserFiles(ctx context.Context, userID uuid.UUID, limit, offset int) ([]*models.UploadedFile, error) {
+func (s *service) GetUserFiles(ctx context.Context, userID uuid.UUID, limit, offset int) ([]*models.UploadedFile, error) {
 	files, err := s.repo.GetUserFiles(ctx, userID, limit, offset)
 	if err != nil {
 		return nil, fmt.Errorf("getting user files: %w", err)
@@ -324,7 +335,7 @@ func (s *Service) GetUserFiles(ctx context.Context, userID uuid.UUID, limit, off
 	return files, nil
 }
 
-func (s *Service) GetUserFilesCount(ctx context.Context, userID uuid.UUID) (int, error) {
+func (s *service) GetUserFilesCount(ctx context.Context, userID uuid.UUID) (int, error) {
 	count, err := s.repo.GetUserFilesCount(ctx, userID)
 	if err != nil {
 		return 0, fmt.Errorf("getting user files count: %w", err)
@@ -333,6 +344,6 @@ func (s *Service) GetUserFilesCount(ctx context.Context, userID uuid.UUID) (int,
 }
 
 // GetFileStats retrieves statistics about uploaded files
-func (s *Service) GetFileStats(ctx context.Context, userID uuid.UUID) (*models.FileStats, error) {
+func (s *service) GetFileStats(ctx context.Context, userID uuid.UUID) (*models.FileStats, error) {
 	return s.repo.GetFileStats(ctx, userID)
 }

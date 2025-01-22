@@ -24,10 +24,10 @@ const (
 )
 
 type Handler struct {
-	service *Service
+	service *service
 }
 
-func NewHandler(service *Service) *Handler {
+func NewHandler(service *service) *Handler {
 	return &Handler{
 		service: service,
 	}
