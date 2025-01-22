@@ -4,7 +4,7 @@ templ HomePage() {
 	@DashboardLayout() {
 		<div class="px-4 py-6 sm:px-0">
 			<h1 class="text-2xl font-semibold text-white mb-6">Dashboard</h1>
-			<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+			<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
 				<!-- Total URLs -->
 				<div class="bg-gray-800 rounded-lg p-5 border border-gray-700 hover:shadow-lg">
 					<div class="flex items-center">
@@ -48,6 +48,20 @@ templ HomePage() {
 						</div>
 					</div>
 				</div>
+				<!-- Total Storage -->
+				<div class="bg-gray-800 rounded-lg p-5 border border-gray-700 hover:shadow-lg">
+					<div class="flex items-center">
+						<div class="p-3 bg-yellow-500/10 rounded-lg">
+							<svg class="w-6 h-6 text-yellow-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+								<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h11m4 0h2m-8 4h2m-4 4h2m-6-8h8"></path>
+							</svg>
+						</div>
+						<div class="ml-4">
+							<h2 id="total-storage" class="text-3xl font-bold text-yellow-400">-</h2>
+							<p class="text-gray-400">Total Storage Used</p>
+						</div>
+					</div>
+				</div>
 			</div>
 			<!-- Quick Actions & Info Section -->
 			<div class="grid grid-cols-1 md:grid-cols-2 gap-4 mt-8">
@@ -74,8 +88,7 @@ templ HomePage() {
 		</div>
 		<script>
             document.addEventListener('DOMContentLoaded', () => {
-
-                fetch('/stats', {
+                fetch('/dashboard/stats', {
                     method: 'GET',
                     headers: {
                         'Authorization': `User-ID: ${localStorage.getItem('userId')}`,
@@ -94,6 +107,9 @@ templ HomePage() {
                     const totalUrlsElement = document.getElementById('total-urls');
                     const totalClicksElement = document.getElementById('total-clicks');
                     const fileCountElement = document.getElementById('file-count');
+                    const totalStorageElement = document.getElementById('total-storage');
+
+                    console.log('Elemente:', totalUrlsElement, totalClicksElement, fileCountElement, totalStorageElement);
 
                     if (totalUrlsElement) {
                         totalUrlsElement.textContent = data.total_urls ?? '-';
@@ -104,7 +120,12 @@ templ HomePage() {
                     }
 
                     if (fileCountElement) {
-                        fileCountElement.textContent = data.file_count ?? '-';
+                        fileCountElement.textContent = data.total_files ?? '-';
+                    }
+
+                    // Convert the storage size to MB and round up to two decimal places
+                    if (totalStorageElement) {
+                        totalStorageElement.textContent = (Math.ceil(data.total_storage / 10000)/100).toFixed(2) + ' MB' ?? '-';
                     }
                 })
                 .catch(error => {

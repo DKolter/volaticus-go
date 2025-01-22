@@ -143,3 +143,29 @@ type FileStats struct {
 	TotalViews   int64    `db:"total_views"`   // Total number of views
 	PopularTypes []string `db:"popular_types"` // Most common file types
 }
+
+// DashboardStats represents the statistics shown on the dashboard
+type DashboardStats struct {
+	TotalURLs    int64        `json:"total_urls" db:"total_urls"`
+	TotalClicks  int64        `json:"total_clicks" db:"total_clicks"`
+	TotalFiles   int64        `json:"total_files" db:"total_files"`
+	TotalStorage int64        `json:"total_storage" db:"total_storage"`
+	RecentURLs   []RecentURL  `json:"recent_urls"`
+	RecentFiles  []RecentFile `json:"recent_files"`
+}
+
+// RecentURL represents a recently created shortened URL
+type RecentURL struct {
+	ShortCode   string `json:"short_code" db:"short_code"`
+	OriginalURL string `json:"original_url" db:"original_url"`
+	AccessCount int    `json:"access_count" db:"access_count"`
+	CreatedAt   string `json:"created_at" db:"created_at"`
+}
+
+// RecentFile represents a recently uploaded file
+type RecentFile struct {
+	FileName    string `json:"file_name" db:"original_name"`
+	FileSize    int64  `json:"file_size" db:"file_size"`
+	AccessCount int    `json:"access_count" db:"access_count"`
+	CreatedAt   string `json:"created_at" db:"created_at"`
+}

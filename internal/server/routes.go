@@ -106,7 +106,12 @@ func (s *Server) RegisterRoutes() http.Handler {
 			})
 		})
 
-		r.Get("/stats", s.shortenerHandler.HandleGetStats)
+		// Dashboard routes
+		r.Route("/dashboard", func(r chi.Router) {
+			r.Use(jwtauth.Verifier(tokenAuth))
+			r.Use(s.AuthMiddleware(tokenAuth))
+			r.Get("/stats", s.dashboardHandler.HandleGetDashboardStats)
+		})
 	})
 
 	// API routes with token authentication
