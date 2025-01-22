@@ -363,3 +363,33 @@ func getIPAddress(r *http.Request) string {
 	}
 	return host
 }
+
+// HandleGetStats returns simple stats about URLs and clicks
+func (h *Handler) HandleGetStats(w http.ResponseWriter, r *http.Request) {
+	user := context.GetUserFromContext(r.Context())
+	if user == nil {
+		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		return
+	}
+
+	// Get user's URLs
+	urls, err := h.service.GetUserURLs(r.Context(), user.ID)
+	if err != nil {
+		log.Printf("Error getting URLs: %v", err)
+		http.Error(w, "Internal server error", http.StatusInternalServerError)
+		return
+	}
+
+	// Calculate total clicks
+	totalClicks := 0
+	for _, url := range urls {
+		totalClicks += url.AccessCount
+	}
+
+	// Return JSON response
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]interface{}{
+		"total_urls":   len(urls),
+		"total_clicks": totalClicks,
+	})
+}

@@ -98,6 +98,8 @@ func (s *Server) RegisterRoutes() http.Handler {
 				r.Put("/{urlID}/expiration", s.shortenerHandler.HandleUpdateExpiration)
 			})
 		})
+
+		r.Get("/api/stats", s.shortenerHandler.HandleGetStats)
 	})
 
 	// API routes with token authentication
