@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"time"
 	"volaticus-go/internal/config"
+	"volaticus-go/internal/dashboard"
 	"volaticus-go/internal/shortener"
 
 	_ "github.com/joho/godotenv/autoload"
@@ -28,6 +29,7 @@ type Server struct {
 	userHandler      *user.Handler
 	fileHandler      *uploader.Handler
 	shortenerHandler *shortener.Handler
+	dashboardHandler *dashboard.Handler
 }
 
 // NewServer creates a new server instance
@@ -37,11 +39,13 @@ func NewServer(config *config.Config, db *database.DB) (*Server, error) {
 	tokenRepo := auth.NewRepository(db)
 	fileRepo := uploader.NewRepository(db)
 	shortenerRepo := shortener.NewRepository(db)
+	dashboardRepo := dashboard.NewRepository(db)
 
 	// Initialize Services
 	authService := auth.NewService(config.Secret, tokenRepo)
 	userService := user.NewService(userRepo)
 	fileService := uploader.NewService(fileRepo, config)
+	dashboardService := dashboard.NewService(dashboardRepo)
 
 	// Initialize file service & start expired files worker
 	ctx := context.Background() // TODO: Use proper context
@@ -55,6 +59,7 @@ func NewServer(config *config.Config, db *database.DB) (*Server, error) {
 	authHandler := auth.NewHandler(userRepo, authService)
 	fileHandler := uploader.NewHandler(fileService)
 	shortenerHandler := shortener.NewHandler(shortenerService)
+	dashboardHandler := dashboard.NewHandler(dashboardService)
 
 	server := &Server{
 		config:           config,
@@ -65,6 +70,7 @@ func NewServer(config *config.Config, db *database.DB) (*Server, error) {
 		userHandler:      userHandler,
 		fileHandler:      fileHandler,
 		shortenerHandler: shortenerHandler,
+		dashboardHandler: dashboardHandler,
 	}
 
 	return server, nil

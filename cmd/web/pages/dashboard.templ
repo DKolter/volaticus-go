@@ -3,25 +3,24 @@ package pages
 templ HomePage() {
 	@DashboardLayout() {
 		<div class="px-4 py-6 sm:px-0">
-			<h1 class="text-2xl font-semibold text-white mb-6">Welcome to Volaticus</h1>
-			<!-- Dummy implementation-->
-			<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-				// Files Uploaded Card
-				<div class="bg-gray-800 rounded-lg p-5 border border-gray-700">
+			<h1 class="text-2xl font-semibold text-white mb-6">Dashboard</h1>
+			<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+				<!-- Total URLs -->
+				<div class="bg-gray-800 rounded-lg p-5 border border-gray-700 hover:shadow-lg">
 					<div class="flex items-center">
 						<div class="p-3 bg-blue-500/10 rounded-lg">
 							<svg class="w-6 h-6 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-								<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"></path>
+								<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1"></path>
 							</svg>
 						</div>
 						<div class="ml-4">
-							<h2 class="text-2xl font-bold text-white">1,234</h2>
-							<p class="text-gray-400">Files Uploaded</p>
+							<h2 id="total-urls" class="text-3xl font-bold text-blue-400">-</h2>
+							<p class="text-gray-400">Active Short URLs</p>
 						</div>
 					</div>
 				</div>
-				// File Views Card
-				<div class="bg-gray-800 rounded-lg p-5 border border-gray-700">
+				<!-- Total Clicks -->
+				<div class="bg-gray-800 rounded-lg p-5 border border-gray-700 hover:shadow-lg">
 					<div class="flex items-center">
 						<div class="p-3 bg-green-500/10 rounded-lg">
 							<svg class="w-6 h-6 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -30,54 +29,109 @@ templ HomePage() {
 							</svg>
 						</div>
 						<div class="ml-4">
-							<h2 class="text-2xl font-bold text-white">45.2K</h2>
-							<p class="text-gray-400">Total Views</p>
-						</div>
-					</div>
-				</div>
-				// URLs Shortened Card
-				<div class="bg-gray-800 rounded-lg p-5 border border-gray-700">
-					<div class="flex items-center">
-						<div class="p-3 bg-purple-500/10 rounded-lg">
-							<svg class="w-6 h-6 text-purple-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-								<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1"></path>
-							</svg>
-						</div>
-						<div class="ml-4">
-							<h2 class="text-2xl font-bold text-white">873</h2>
-							<p class="text-gray-400">URLs Shortened</p>
-						</div>
-					</div>
-				</div>
-				// URL Clicks Card
-				<div class="bg-gray-800 rounded-lg p-5 border border-gray-700">
-					<div class="flex items-center">
-						<div class="p-3 bg-yellow-500/10 rounded-lg">
-							<svg class="w-6 h-6 text-yellow-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-								<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 15l-2 5L9 9l11 4-5 2zm0 0l5 5M7.188 2.239l.777 2.897M5.136 7.965l-2.898-.777M13.95 4.05l-2.122 2.122m-5.657 5.656l-2.12 2.122"></path>
-							</svg>
-						</div>
-						<div class="ml-4">
-							<h2 class="text-2xl font-bold text-white">12.5K</h2>
+							<h2 id="total-clicks" class="text-3xl font-bold text-green-400">-</h2>
 							<p class="text-gray-400">Total Clicks</p>
 						</div>
 					</div>
 				</div>
-				// Last Upload Card
-				<div class="bg-gray-800 rounded-lg p-5 border border-gray-700">
+				<!-- Uploaded Files -->
+				<div class="bg-gray-800 rounded-lg p-5 border border-gray-700 hover:shadow-lg">
 					<div class="flex items-center">
-						<div class="p-3 bg-red-500/10 rounded-lg">
-							<svg class="w-6 h-6 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-								<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+						<div class="p-3 bg-purple-500/10 rounded-lg">
+							<svg class="w-6 h-6 text-purple-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+								<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"></path>
 							</svg>
 						</div>
 						<div class="ml-4">
-							<h2 class="text-sm font-bold text-white">important.pdf</h2>
-							<p class="text-gray-400">2 minutes ago</p>
+							<h2 id="file-count" class="text-3xl font-bold text-purple-400">-</h2>
+							<p class="text-gray-400">Uploaded Files</p>
+						</div>
+					</div>
+				</div>
+				<!-- Total Storage -->
+				<div class="bg-gray-800 rounded-lg p-5 border border-gray-700 hover:shadow-lg">
+					<div class="flex items-center">
+						<div class="p-3 bg-yellow-500/10 rounded-lg">
+							<svg class="w-6 h-6 text-yellow-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+								<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h11m4 0h2m-8 4h2m-4 4h2m-6-8h8"></path>
+							</svg>
+						</div>
+						<div class="ml-4">
+							<h2 id="total-storage" class="text-3xl font-bold text-yellow-400">-</h2>
+							<p class="text-gray-400">Total Storage Used</p>
 						</div>
 					</div>
 				</div>
 			</div>
+			<!-- Quick Actions & Info Section -->
+			<div class="grid grid-cols-1 md:grid-cols-2 gap-4 mt-8">
+				<!-- Quick Actions -->
+				<div class="bg-gray-800 rounded-lg p-6 border border-gray-700">
+					<h3 class="text-lg font-semibold text-white mb-4">Quick Actions</h3>
+					<ul class="space-y-2">
+						<li><a href="/upload" class="text-blue-400 hover:underline">Upload a File</a></li>
+						<li><a href="/url-shortener" class="text-blue-400 hover:underline">Create a Short URL</a></li>
+						<li><a href="/settings" class="text-blue-400 hover:underline">Manage Settings</a></li>
+					</ul>
+				</div>
+				<!-- Getting Started -->
+				<div class="bg-gray-800 rounded-lg p-6 border border-gray-700">
+					<h3 class="text-lg font-semibold text-white mb-4">Getting Started</h3>
+					<ul class="list-disc list-inside text-gray-400 mt-2">
+						<li>Upload and share files securely</li>
+						<li>Create custom short URLs</li>
+						<li>Analyze URL performance</li>
+						<li>Generate API tokens for automation</li>
+					</ul>
+				</div>
+			</div>
 		</div>
+		<script>
+            document.addEventListener('DOMContentLoaded', () => {
+                fetch('/dashboard/stats', {
+                    method: 'GET',
+                    headers: {
+                        'Authorization': `User-ID: ${localStorage.getItem('userId')}`,
+                        'Content-Type': 'application/json'
+                    }
+                })
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error('API request failed');
+                    }
+                    return response.json();
+                })
+                .then(data => {
+                    console.log('API-Daten:', data);
+
+                    const totalUrlsElement = document.getElementById('total-urls');
+                    const totalClicksElement = document.getElementById('total-clicks');
+                    const fileCountElement = document.getElementById('file-count');
+                    const totalStorageElement = document.getElementById('total-storage');
+
+                    console.log('Elemente:', totalUrlsElement, totalClicksElement, fileCountElement, totalStorageElement);
+
+                    if (totalUrlsElement) {
+                        totalUrlsElement.textContent = data.total_urls ?? '-';
+                    }
+
+                    if (totalClicksElement) {
+                        totalClicksElement.textContent = data.total_clicks ?? '-';
+                    }
+
+                    if (fileCountElement) {
+                        fileCountElement.textContent = data.total_files ?? '-';
+                    }
+
+                    // Convert the storage size to MB and round up to two decimal places
+                    if (totalStorageElement) {
+                        totalStorageElement.textContent = (Math.ceil(data.total_storage / 10000)/100).toFixed(2) + ' MB' ?? '-';
+                    }
+                })
+                .catch(error => {
+                    console.error('Error while fetching API data:', error);
+                });
+            });
+        </script>
 	}
 }

@@ -49,14 +49,20 @@ templ AnalyticsModal(analytics *models.URLAnalytics) {
 								/>
 							</label>
 							<script>
-                                document.querySelector('.modal input[name="expires_at"]').addEventListener('change', function(e) {
-                                    const date = new Date(e.target.value);
-                                    // Ensure we're working with local time
-                                    const localISOTime = new Date(date.getTime() - (date.getTimezoneOffset() * 60000))
-                                        .toISOString()
-                                        .slice(0, 16);
-                                    e.target.value = localISOTime;
-                                });
+                                // Wait til DOM has loaded
+                                setTimeout(() => {
+                                    const input = document.querySelector('input[name="expires_at"]');
+                                    if (input) {
+                                        input.addEventListener('change', function(e) {
+                                            const date = new Date(e.target.value);
+                                            // Ensure we're working with local time
+                                            const localISOTime = new Date(date.getTime() - (date.getTimezoneOffset() * 60000))
+                                                .toISOString()
+                                                .slice(0, 16);
+                                            e.target.value = localISOTime;
+                                        });
+                                    }
+                                }, 0);
                             </script>
 							<button
 								type="submit"

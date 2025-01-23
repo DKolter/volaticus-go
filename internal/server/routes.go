@@ -105,6 +105,11 @@ func (s *Server) RegisterRoutes() http.Handler {
 				r.Put("/{urlID}/expiration", s.shortenerHandler.HandleUpdateExpiration)
 			})
 		})
+
+		// Dashboard routes
+		r.Route("/dashboard", func(r chi.Router) {
+			r.Get("/stats", s.dashboardHandler.HandleGetDashboardStats)
+		})
 	})
 
 	// API routes with token authentication
