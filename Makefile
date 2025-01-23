@@ -19,9 +19,9 @@ templ-install:
 tailwind-install:
 	@if [ ! -f tailwindcss ]; then \
         if [ "$$(uname)" = "Darwin" ]; then \
-            curl -sL https://github.com/tailwindlabs/tailwindcss/releases/latest/download/tailwindcss-macos-x64 -o tailwindcss; \
+            curl -sL https://github.com/tailwindlabs/tailwindcss/releases/download/v3.4.16/tailwindcss-macos-arm64 -o tailwindcss; \
         else \
-            curl -sL https://github.com/tailwindlabs/tailwindcss/releases/latest/download/tailwindcss-linux-x64 -o tailwindcss; \
+            curl -sL https://github.com/tailwindlabs/tailwindcss/releases/download/v3.4.16/tailwindcss-linux-x64 -o tailwindcss; \
         fi \
     fi
 	@chmod +x tailwindcss
@@ -30,7 +30,7 @@ build: tailwind-install templ-install
 	@echo "Building..."
 	@templ generate
 	@./tailwindcss -i cmd/web/assets/css/input.css -o cmd/web/assets/css/output.css
-	@go build -o ./bin/volaticus cmd/api/main.go
+	@go build -ldflags "-X main.version=$$(git describe --tags --always) -X main.commit=$$(git rev-parse --short HEAD) -X main.date=$$(date -u +%Y-%m-%dT%H:%M:%SZ)" -o ./bin/volaticus cmd/api/main.go
 
 # Run the application
 run:

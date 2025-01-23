@@ -21,9 +21,17 @@ jobs:
       - name: Install templ
         shell: bash
         run: go install github.com/a-h/templ/cmd/templ@latest
+
       - name: Run templ generate
         shell: bash
         run: templ generate -path .
+
+      - name: Install Tailwind CSS
+        shell: bash
+        run: |
+          curl -sLO https://github.com/tailwindlabs/tailwindcss/releases/download/v3.4.16/tailwindcss-linux-x64
+          chmod +x tailwindcss-linux-x64
+          mv tailwindcss-linux-x64 tailwindcss
 
       - name: Run GoReleaser
         uses: goreleaser/goreleaser-action@v6

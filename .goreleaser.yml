@@ -1,30 +1,34 @@
 version: 2
 before:
   hooks:
-  - go mod tidy
+    - go mod tidy
 
 env:
   - PACKAGE_PATH=github.com/<user>/<repo>/cmd
 
 builds:
-- binary: "{{ .ProjectName }}"
-  main: ./cmd/api
-  goos:
-  - darwin
-  - linux
-  - windows
-  goarch:
-  - amd64
-  - arm64
-  env:
-  - CGO_ENABLED=0
-  ldflags:
-  - -s -w -X {{.Env.PACKAGE_PATH}}={{.Version}} 
+  - id: volaticus
+    binary: volaticus
+    main: ./cmd/api
+    goos:
+      - darwin
+      - linux
+      - windows
+    goarch:
+      - amd64
+      - arm64
+    env:
+      - CGO_ENABLED=0
+    ldflags:
+      - -s -w
+      - -X main.version={{.Version}}
+      - -X main.commit={{.Commit}}
+      - -X main.date={{.Date}}
 release:
   prerelease: auto
 
 universal_binaries:
-- replace: true
+  - replace: true
 
 archives:
   - name_template: >
@@ -37,6 +41,10 @@ archives:
       owner: root
     files:
       - README.md
+      - .env.example
 
 checksum:
-  name_template: 'checksums.txt'
+  name_template: checksums.txt
+
+snapshot:
+  name_template: "{{ incpatch .Version }}-next"
