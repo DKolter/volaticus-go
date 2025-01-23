@@ -30,6 +30,7 @@ main
 main.exe
 *templ.go
 bin/
+dist/
 
 # OS X generated file
 .DS_Store

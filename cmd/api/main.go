@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"errors"
+	"fmt"
 	"log"
 	"net/http"
 	"os"
@@ -16,7 +17,19 @@ import (
 	"volaticus-go/internal/server"
 )
 
+var (
+	version = "dev"
+	commit  = "none"
+	date    = "unknown"
+)
+
 func main() {
+	if len(os.Args) > 1 && os.Args[1] == "version" {
+		fmt.Printf("Volaticus %s\n", formatVersionInfo())
+		return
+	}
+	log.Printf("Starting Volaticus version %s (commit: %s) built at %s", version, commit, date)
+
 	// Create a base context for the application
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
@@ -25,11 +38,6 @@ func main() {
 	cfg, err := config.NewConfig()
 	if err != nil {
 		log.Fatalf("Error loading configuration: %v", err)
-	}
-
-	// Print configuration if in development
-	if cfg.Env == "dev" {
-		cfg.String()
 	}
 
 	// Initialize database with the new implementation
@@ -106,4 +114,10 @@ func main() {
 	// Wait for context cancellation (shutdown complete)
 	<-ctx.Done()
 	log.Println("Server shutdown completed")
+}
+
+func formatVersionInfo() string {
+	return fmt.Sprintf(`Version: %s
+Commit: %s
+Built: %s`, version, commit, date)
 }
