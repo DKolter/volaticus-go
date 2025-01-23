@@ -56,8 +56,7 @@ func mustStartPostgresContainer() (func(context.Context) error, error) {
 		dbUser = "testuser"
 	)
 
-	container, err := postgres.RunContainer(ctx,
-		testcontainers.WithImage("postgres:14-alpine"),
+	container, err := postgres.Run(ctx, "postgres:14-alpine",
 		postgres.WithDatabase(dbName),
 		postgres.WithUsername(dbUser),
 		postgres.WithPassword(dbPwd),
