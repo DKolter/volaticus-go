@@ -6,6 +6,7 @@ import (
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
 	"os"
+	"regexp"
 	"strings"
 )
 
@@ -47,6 +48,9 @@ var (
 		Gray:   "",
 		Bold:   "",
 	}
+
+	// Regex für HTTP Status Codes (exakt 3 Ziffern)
+	statusCodeRegex = regexp.MustCompile(`^[2-5]\d{2}$`)
 )
 
 func Init(env string) {
@@ -91,17 +95,23 @@ func Init(env string) {
 		FormatFieldValue: func(i interface{}) string {
 			val := fmt.Sprintf("%s", i)
 
+			// HTTP Methods
 			switch val {
 			case "GET", "POST", "PUT", "DELETE", "PATCH":
 				return fmt.Sprintf("%s%s%s", scheme.Purple, val, scheme.Reset)
 			}
 
-			if strings.HasPrefix(val, "2") {
-				return fmt.Sprintf("%s%s%s", scheme.Green, val, scheme.Reset)
-			} else if strings.HasPrefix(val, "3") {
-				return fmt.Sprintf("%s%s%s", scheme.Yellow, val, scheme.Reset)
-			} else if strings.HasPrefix(val, "4") || strings.HasPrefix(val, "5") {
-				return fmt.Sprintf("%s%s%s", scheme.Red, val, scheme.Reset)
+			// Status Codes - nur exakte 3-stellige Zahlen zwischen 200-599
+			if statusCodeRegex.MatchString(val) {
+				code := val[0] // erste Ziffer
+				switch code {
+				case '2':
+					return fmt.Sprintf("%s%s%s", scheme.Green, val, scheme.Reset)
+				case '3':
+					return fmt.Sprintf("%s%s%s", scheme.Yellow, val, scheme.Reset)
+				case '4', '5':
+					return fmt.Sprintf("%s%s%s", scheme.Red, val, scheme.Reset)
+				}
 			}
 
 			return val
