@@ -12,7 +12,9 @@ RUN go install github.com/a-h/templ/cmd/templ@v0.3.819 && \
     templ generate && \
     curl -sL https://github.com/tailwindlabs/tailwindcss/releases/download/v3.4.16/tailwindcss-linux-x64 -o tailwindcss && \
     chmod +x tailwindcss && \
-    ./tailwindcss -i cmd/web/assets/css/input.css -o cmd/web/assets/css/output.css
+    ./tailwindcss -i cmd/web/assets/css/input.css -o cmd/web/assets/css/output.css && \
+    curl -L -o GeoLite2-City.mmdb https://github.com/P3TERX/GeoLite.mmdb/raw/download/GeoLite2-City.mmdb
+
 
 # Build the binary with version information
 ARG VERSION=dev
@@ -28,8 +30,24 @@ RUN if [ -z "$BUILD_DATE" ]; then BUILD_DATE=$(date -u +%Y-%m-%dT%H:%M:%SZ); fi 
     -X main.date=${BUILD_DATE}" \
     -o volaticus cmd/api/main.go
 
+# Development stage
+FROM golang:1.23-alpine AS dev
+
+RUN apk add --no-cache git curl make
+
+WORKDIR /app
+
+COPY go.mod go.sum ./
+RUN go mod download && \
+    git config --global --add safe.directory /app
+
+# The rest of the source code will be mounted as a volume
+CMD ["make","watch"]
+
+# Production stage
 FROM alpine:3.20.1 AS prod
 WORKDIR /app
 COPY --from=build /app/volaticus /app/volaticus
+COPY --from=build /app/GeoLite2-City.mmdb /app/GeoLite2-City.mmdb
 EXPOSE ${PORT}
 CMD ["./volaticus"]

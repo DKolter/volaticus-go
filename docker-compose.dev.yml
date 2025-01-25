@@ -1,0 +1,66 @@
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: dev # Use development stage
+    ports:
+      - ${PORT}:${PORT}
+    environment:
+      STORAGE_PROVIDER: gcs
+      GCS_PROJECT_ID: test-project
+      GCS_BUCKET_NAME: test-bucket
+      STORAGE_EMULATOR_HOST: gcs-emulator:4443
+      # Development-specific settings
+      APP_ENV: development
+      PORT: ${PORT}
+      DB_HOST: psql
+      DB_PORT: 5432
+      DB_DATABASE: ${DB_DATABASE}
+      DB_USERNAME: ${DB_USERNAME}
+      DB_PASSWORD: ${DB_PASSWORD}
+      DB_SCHEMA: ${DB_SCHEMA}
+      SECRET: ${SECRET}
+      BASE_URL: ${BASE_URL}
+    volumes:
+      - .:/app # Mount source code for live reload
+    depends_on:
+      - psql
+      - gcs-emulator
+
+  gcs-emulator:
+    image: fsouza/fake-gcs-server:latest
+    command: ["-scheme", "http", "-public-host", "gcs-emulator"]
+    ports:
+      - "4443:4443"
+    volumes:
+      - ./tmp/gcs:/storage
+    environment:
+      INITIAL_BUCKET: test-bucket
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:4443/storage/v1/b/test-bucket"]
+      interval: 5s
+      timeout: 3s
+      retries: 3
+      start_period: 5s
+
+  psql:
+    image: postgres:latest
+    environment:
+      POSTGRES_DB: ${DB_DATABASE}
+      POSTGRES_USER: ${DB_USERNAME}
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+    ports:
+      - "5432:5432"
+    volumes:
+      - psql_volume:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USERNAME} -d ${DB_DATABASE}"]
+      interval: 5s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
+
+volumes:
+  psql_volume:
+  gcs_data:
