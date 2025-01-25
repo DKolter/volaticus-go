@@ -1,9 +1,14 @@
 package server
 
 import (
-	"log"
+	"fmt"
+	"github.com/dustin/go-humanize"
+	"github.com/go-chi/chi/v5/middleware"
+	"github.com/google/uuid"
+	"github.com/rs/zerolog/log"
 	"net/http"
 	"strings"
+	"time"
 	userctx "volaticus-go/internal/context"
 
 	"github.com/go-chi/jwtauth/v5"
@@ -89,7 +94,10 @@ func (s *Server) APITokenAuthMiddleware(next http.Handler) http.Handler {
 		// Validate token
 		apiToken, err := s.authService.ValidateAPIToken(r.Context(), token)
 		if err != nil {
-			log.Printf("Token validation error: %v", err)
+			log.Error().
+				Err(err).
+				Str("token", token).
+				Msg("token validation failed")
 			http.Error(w, "Invalid or expired token", http.StatusUnauthorized)
 			return
 		}
@@ -97,7 +105,10 @@ func (s *Server) APITokenAuthMiddleware(next http.Handler) http.Handler {
 		// Get user information
 		user, err := s.userService.GetByID(r.Context(), apiToken.UserID)
 		if err != nil {
-			log.Printf("User lookup error: %v", err)
+			log.Error().
+				Err(err).
+				Str("user_id", apiToken.UserID.String()).
+				Msg("user lookup failed")
 			http.Error(w, "User not found", http.StatusUnauthorized)
 			return
 		}
@@ -112,4 +123,109 @@ func (s *Server) APITokenAuthMiddleware(next http.Handler) http.Handler {
 		// Continue with the authenticated request
 		next.ServeHTTP(w, r.WithContext(ctx))
 	})
+}
+
+// LoggerMiddleware logs request details and duration
+func LoggerMiddleware() func(next http.Handler) http.Handler {
+	return func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			// Skip noisy static asset logging
+			if isStaticAsset(r.URL.Path) {
+				next.ServeHTTP(w, r)
+				return
+			}
+
+			start := time.Now()
+			ww := middleware.NewWrapResponseWriter(w, r.ProtoMajor)
+
+			// Generate or get request ID
+			requestID := middleware.GetReqID(r.Context())
+			if requestID == "" {
+				requestID = uuid.New().String()[:8]
+			}
+
+			// Group logs by request using consistent fields
+			reqLogger := log.With().
+				Str("rid", requestID).
+				Str("method", r.Method).
+				Str("path", shortenPath(r.URL.Path)). // Shorten very long paths
+				Logger()
+
+			// Initial request log
+			reqLogger.Info().
+				Str("ip", anonymizeIP(r.RemoteAddr)).         // Anonymize IPs in logs for privacy
+				Str("ua", summarizeUserAgent(r.UserAgent())). // Summarize UA
+				Msg("Request started")
+
+			defer func() {
+				duration := time.Since(start)
+
+				// Detailed completion log
+				event := reqLogger.Info()
+				if ww.Status() >= 400 {
+					event = reqLogger.Error()
+				}
+
+				event.
+					Int("status", ww.Status()).
+					Str("duration", formatDuration(duration)).
+					Str("size", humanize.Bytes(uint64(ww.BytesWritten()))).
+					Msg("Request completed")
+			}()
+
+			next.ServeHTTP(ww, r)
+		})
+	}
+}
+
+// Helper functions for cleaner logging
+
+func isStaticAsset(path string) bool {
+	return strings.HasPrefix(path, "/assets/") ||
+		strings.HasPrefix(path, "/static/") ||
+		strings.HasSuffix(path, ".css") ||
+		strings.HasSuffix(path, ".js") ||
+		strings.HasSuffix(path, ".ico") ||
+		strings.HasSuffix(path, ".png") ||
+		strings.HasSuffix(path, ".jpg")
+}
+
+func shortenPath(path string) string {
+	if len(path) > 50 {
+		return path[:20] + "..." + path[len(path)-20:]
+	}
+	return path
+}
+
+func anonymizeIP(ip string) string {
+	parts := strings.Split(ip, ":")
+	if len(parts) > 0 {
+		if parts[0] == "[::1]" {
+			return "localhost"
+		}
+		// Anonymize last octet for IPv4
+		ipParts := strings.Split(parts[0], ".")
+		if len(ipParts) == 4 {
+			ipParts[3] = "xxx"
+			return strings.Join(ipParts, ".")
+		}
+	}
+	return ip
+}
+
+func summarizeUserAgent(ua string) string {
+	if strings.Contains(ua, "curl") {
+		return "curl"
+	}
+	if len(ua) > 50 {
+		return ua[:47] + "..."
+	}
+	return ua
+}
+
+func formatDuration(d time.Duration) string {
+	if d < time.Millisecond {
+		return fmt.Sprintf("%dµs", d.Microseconds())
+	}
+	return fmt.Sprintf("%dms", d.Milliseconds())
 }

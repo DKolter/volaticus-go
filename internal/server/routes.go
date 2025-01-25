@@ -13,7 +13,7 @@ import (
 
 func (s *Server) RegisterRoutes() http.Handler {
 	r := chi.NewRouter()
-	r.Use(middleware.Logger)
+	r.Use(LoggerMiddleware())
 	r.Use(middleware.Recoverer)
 
 	// JWT authentication middleware

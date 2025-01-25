@@ -11,6 +11,7 @@ import (
 	"syscall"
 	"time"
 	"volaticus-go/internal/config"
+	"volaticus-go/internal/logger"
 
 	"volaticus-go/internal/database"
 	"volaticus-go/internal/database/migrate"
@@ -39,6 +40,9 @@ func main() {
 	if err != nil {
 		log.Fatalf("Error loading configuration: %v", err)
 	}
+
+	// Initialize logger
+	logger.Init(cfg.Env)
 
 	// Initialize database with the new implementation
 	db, err := database.NewFromEnv()
