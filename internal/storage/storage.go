@@ -26,7 +26,7 @@ type StorageProvider interface {
 	// GetURL returns a URL for accessing the file
 	GetURL(ctx context.Context, filename string) (string, time.Duration, error)
 
-	// Stream serves the file directly to an http.ResponseWriter
+	// Stream serves the file directly to a http.ResponseWriter
 	Stream(ctx context.Context, filename string, w http.ResponseWriter) error
 
 	// Exists checks if a file exists in storage

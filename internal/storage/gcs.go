@@ -5,13 +5,14 @@ import (
 	"encoding/base64"
 	"errors"
 	"fmt"
-	"google.golang.org/api/iterator"
 	"io"
+	"log"
 	"net/http"
 	"os"
 	"strconv"
-	"strings"
 	"time"
+
+	"google.golang.org/api/iterator"
 
 	"cloud.google.com/go/storage"
 	"google.golang.org/api/option"
@@ -29,9 +30,10 @@ func NewGCSStorage(projectID, bucketName string) (*GCSStorageProvider, error) {
 	var err error
 
 	if emulatorHost := os.Getenv("STORAGE_EMULATOR_HOST"); emulatorHost != "" {
+		log.Printf("Using GCS emulator at %s", emulatorHost)
 		client, err = storage.NewClient(
 			ctx,
-			option.WithEndpoint("http://"+emulatorHost),
+			option.WithEndpoint(fmt.Sprintf("http://%s", emulatorHost)),
 			option.WithoutAuthentication(),
 		)
 	} else {
@@ -59,13 +61,31 @@ func NewGCSStorage(projectID, bucketName string) (*GCSStorageProvider, error) {
 	}, nil
 }
 
+func ensureBucketExists(ctx context.Context, bucket *storage.BucketHandle) error {
+	if _, err := bucket.Attrs(ctx); err != nil {
+		if errors.Is(err, storage.ErrBucketNotExist) {
+			log.Printf("Bucket does not exist, creating...")
+			if err := bucket.Create(ctx, "", nil); err != nil {
+				return fmt.Errorf("failed to create bucket: %w", err)
+			}
+			log.Printf("Bucket created successfully")
+		} else {
+			return fmt.Errorf("failed to get bucket attributes: %w", err)
+		}
+	}
+	return nil
+}
+
 func (g *GCSStorageProvider) Upload(ctx context.Context, file io.Reader, filename string) (string, error) {
 	obj := g.bucket.Object(filename)
 	writer := obj.NewWriter(ctx)
 
+	writer.ChunkSize = 16 * 1024 * 1024 // 16MB chunks
 	writer.ObjectAttrs.CacheControl = "public, max-age=86400"
 
-	if _, err := io.Copy(writer, file); err != nil {
+	// Create a buffer to improve copy performance
+	buf := make([]byte, 1024*1024) // 1MB buffer
+	if _, err := io.CopyBuffer(writer, file, buf); err != nil {
 		writer.Close()
 		return "", fmt.Errorf("failed to copy file to GCS: %w", err)
 	}
@@ -78,16 +98,19 @@ func (g *GCSStorageProvider) Upload(ctx context.Context, file io.Reader, filenam
 }
 
 func (g *GCSStorageProvider) Stream(ctx context.Context, filename string, w http.ResponseWriter) error {
-	obj := g.bucket.Object(filename)
+	log.Printf("Stream called for filename: %s", filename)
 
-	// Get object attributes for content type and size
+	obj := g.bucket.Object(filename)
 	attrs, err := obj.Attrs(ctx)
 	if err != nil {
+		log.Printf("Error getting object attributes: %v", err)
 		return fmt.Errorf("failed to get object attributes: %w", err)
 	}
+	log.Printf("Object attributes retrieved: %+v", attrs)
 
 	reader, err := obj.NewReader(ctx)
 	if err != nil {
+		log.Printf("Error creating reader: %v", err)
 		return fmt.Errorf("failed to create reader: %w", err)
 	}
 	defer reader.Close()
@@ -95,13 +118,15 @@ func (g *GCSStorageProvider) Stream(ctx context.Context, filename string, w http
 	// Set response headers
 	w.Header().Set("Content-Type", attrs.ContentType)
 	w.Header().Set("Content-Length", strconv.FormatInt(attrs.Size, 10))
-	w.Header().Set("Cache-Control", attrs.CacheControl)
-	if attrs.ContentDisposition != "" {
-		w.Header().Set("Content-Disposition", attrs.ContentDisposition)
+	if attrs.CacheControl != "" {
+		w.Header().Set("Cache-Control", attrs.CacheControl)
 	}
 
 	// Stream the file
-	if _, err := io.Copy(w, reader); err != nil {
+	bytesWritten, err := io.Copy(w, reader)
+	log.Printf("Streamed %d bytes for file %s", bytesWritten, filename)
+	if err != nil {
+		log.Printf("Error streaming file: %v", err)
 		return fmt.Errorf("failed to stream file: %w", err)
 	}
 
@@ -134,15 +159,28 @@ func (g *GCSStorageProvider) Delete(ctx context.Context, filename string) error 
 }
 
 func (g *GCSStorageProvider) GetURL(ctx context.Context, filename string) (string, time.Duration, error) {
+	log.Printf("GetURL called for filename: %s", filename)
+	log.Printf("Base URL from environment: %s", os.Getenv("BASE_URL"))
+
+	// Ensure the file exists in the bucket
+	obj := g.bucket.Object(filename)
+	_, err := obj.Attrs(ctx)
+	if err != nil {
+		log.Printf("Error getting object attributes: %v", err)
+		return "", 0, fmt.Errorf("failed to get object attributes: %w", err)
+	}
+	log.Printf("Object exists in bucket: %s", filename)
+
 	baseURL := os.Getenv("BASE_URL")
-	return fmt.Sprintf("%s/f/%s", baseURL, filename), 0, nil
+	url := fmt.Sprintf("%s/f/%s", baseURL, filename)
+	log.Printf("Constructed URL: %s", url)
+	return url, 0, nil
 }
 
 func (g *GCSStorageProvider) ListFiles(ctx context.Context, prefix string) ([]FileInfo, error) {
-	// Create an empty slice to return if there are no files
-	var files []FileInfo
+	log.Printf("ListFiles called with prefix: '%s'", prefix)
 
-	// Create an iterator for objects in the bucket with the given prefix
+	var files []FileInfo
 	it := g.bucket.Objects(ctx, &storage.Query{
 		Prefix: prefix,
 	})
@@ -150,18 +188,13 @@ func (g *GCSStorageProvider) ListFiles(ctx context.Context, prefix string) ([]Fi
 	for {
 		attrs, err := it.Next()
 		if errors.Is(err, iterator.Done) {
-			// Return empty slice instead of error when no files exist
-			return files, nil
+			break
 		}
 		if err != nil {
-			// Check if the error is specifically about no objects
-			if strings.Contains(err.Error(), "404") {
-				// Return empty slice for empty bucket
-				return files, nil
-			}
+			log.Printf("Error iterating objects: %v", err)
 			return nil, fmt.Errorf("error iterating objects: %w", err)
 		}
-
+		log.Printf("Found file: %s", attrs.Name)
 		files = append(files, FileInfo{
 			Name:         attrs.Name,
 			Size:         attrs.Size,
@@ -169,6 +202,9 @@ func (g *GCSStorageProvider) ListFiles(ctx context.Context, prefix string) ([]Fi
 			ModifiedTime: attrs.Updated,
 		})
 	}
+
+	log.Printf("Found %d files", len(files))
+	return files, nil
 }
 
 func (g *GCSStorageProvider) Close() error {

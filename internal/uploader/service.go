@@ -127,7 +127,7 @@ func (s *service) UploadFile(ctx context.Context, req *UploadRequest) (*models.C
 	}
 
 	// Get URL for response
-	url, _, err := s.storage.GetURL(ctx, urlValue)
+	url, _, err := s.storage.GetURL(ctx, uniqueFilename)
 	if err != nil {
 		return nil, fmt.Errorf("getting file URL: %w", err)
 	}
