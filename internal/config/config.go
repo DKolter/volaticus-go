@@ -2,22 +2,24 @@ package config
 
 import (
 	"fmt"
-	"github.com/rs/zerolog/log"
 	"os"
 	"strconv"
 	"strings"
+	"time"
+
+	"github.com/rs/zerolog/log"
 )
 
 // Config holds server configuration
 type Config struct {
-	Port              int    // Port to listen on
-	Secret            string // Secret key for JWT & api tokens
-	Env               string // Environment (dev | prod)
-	BaseURL           string // Base URL for the server
-	UploadDirectory   string // Directory to store uploaded files
-	UploadMaxSize     int64  // Maximum upload size in bytes
-	UploadUserMaxSize int64  // Maximum upload size per user in bytes
-	UploadExpiresIn   int    // Upload expiration time in hours
+	Port            int           // Port to listen on
+	Secret          string        // Secret key for JWT & api tokens
+	Env             string        // Environment (dev | prod)
+	BaseURL         string        // Base URL for the server
+	UploadMaxSize   int64         // Maximum upload size in bytes
+	UploadUserQuota int64         // Quota user is allowed to upload in bytes
+	UploadExpiresIn time.Duration // Upload expiration time in hours
+	Storage         StorageConfig
 }
 
 func (c *Config) String() {
@@ -25,11 +27,22 @@ func (c *Config) String() {
 		Int("port", c.Port).
 		Str("env", c.Env).
 		Str("base_url", c.BaseURL).
-		Str("upload_dir", c.UploadDirectory).
 		Int64("upload_max_size", c.UploadMaxSize).
-		Int64("upload_user_max_size", c.UploadUserMaxSize).
-		Int("upload_expires_in", c.UploadExpiresIn).
+		Int64("upload_user_quota", c.UploadUserQuota).
+		Dur("upload_expires_in", c.UploadExpiresIn).
 		Msg("server configuration")
+}
+
+type StorageConfig struct {
+	// Provider type ("local" or "gcs")
+	Provider string `json:"provider"`
+
+	// Local storage config
+	LocalPath string `json:"local_path,omitempty"`
+
+	// GCS config
+	ProjectID  string `json:"project_id,omitempty"`
+	BucketName string `json:"bucket_name,omitempty"`
 }
 
 // NewConfig creates a server configuration from environment variables
@@ -56,11 +69,6 @@ func NewConfig() (*Config, error) {
 		baseURL = "http://localhost"
 	}
 
-	uploadDirectory := os.Getenv("UPLOAD_DIR")
-	if uploadDirectory == "" {
-		uploadDirectory = "./uploads"
-	}
-
 	uploadMaxSizeStr := os.Getenv("UPLOAD_MAX_SIZE")
 	if uploadMaxSizeStr == "" {
 		uploadMaxSizeStr = "25MB" // Default value
@@ -71,11 +79,11 @@ func NewConfig() (*Config, error) {
 		return nil, err
 	}
 
-	uploadUserMaxSizeStr := os.Getenv("UPLOAD_USER_MAX_SIZE")
-	if uploadUserMaxSizeStr == "" {
-		uploadUserMaxSizeStr = "100MB" // Default value
+	uploadUserQuotaStr := os.Getenv("UPLOAD_USER_MAX_SIZE")
+	if uploadUserQuotaStr == "" {
+		uploadUserQuotaStr = "100MB" // Default value
 	}
-	uploadUserMaxSize, err := parseUploadMaxSize(uploadUserMaxSizeStr)
+	uploadUserQuota, err := parseUploadMaxSize(uploadUserQuotaStr)
 	if err != nil {
 		log.Error().Err(err).Msg("invalid UPLOAD_USER_MAX_SIZE configuration")
 		return nil, err
@@ -83,27 +91,72 @@ func NewConfig() (*Config, error) {
 
 	uploadExpiresInStr := os.Getenv("UPLOAD_EXPIRES_IN")
 	if uploadExpiresInStr == "" {
-		uploadExpiresInStr = "24" // Default value
+		uploadExpiresInStr = "24h"
+	} else {
+		// Check if the string has a duration suffix
+		if !strings.HasSuffix(uploadExpiresInStr, "h") && !strings.HasSuffix(uploadExpiresInStr, "d") {
+			uploadExpiresInStr += "h"
+		}
 	}
-	uploadExpiresIn, err := strconv.Atoi(uploadExpiresInStr)
-	if err != nil {
+
+	// Parse the duration
+	uploadExpiresIn, err := time.ParseDuration(uploadExpiresInStr)
+	if err != nil || uploadExpiresIn <= 0 {
 		log.Error().Err(err).Msg("invalid UPLOAD_EXPIRES_IN environment variable")
 		return nil, fmt.Errorf("invalid UPLOAD_EXPIRES_IN: %w", err)
 	}
 
+	// Configure storage
+	storageProvider := os.Getenv("STORAGE_PROVIDER")
+	if storageProvider == "" {
+		storageProvider = "local"
+	}
+
+	storageConfig := StorageConfig{
+		Provider:   storageProvider,
+		LocalPath:  os.Getenv("UPLOAD_DIR"),
+		ProjectID:  os.Getenv("GCS_PROJECT_ID"),
+		BucketName: os.Getenv("GCS_BUCKET_NAME"),
+	}
+
+	// Validate storage configuration
+	if err := validateStorageConfig(storageConfig); err != nil {
+		return nil, fmt.Errorf("invalid storage configuration: %w", err)
+	}
+
 	return &Config{
-		Port:              port,
-		Secret:            secret,
-		Env:               env,
-		BaseURL:           baseURL,
-		UploadDirectory:   uploadDirectory,
-		UploadMaxSize:     uploadMaxSize,
-		UploadUserMaxSize: uploadUserMaxSize,
-		UploadExpiresIn:   uploadExpiresIn,
+		Port:            port,
+		Secret:          secret,
+		Env:             env,
+		BaseURL:         baseURL,
+		UploadMaxSize:   uploadMaxSize,
+		UploadUserQuota: uploadUserQuota,
+		UploadExpiresIn: uploadExpiresIn,
+		Storage:         storageConfig,
 	}, nil
 }
 
-// parseUploadMaxSize parses the MAX_UPLOAD_SIZE environment variable
+// validateStorageConfig ensures the storage configuration is valid
+func validateStorageConfig(cfg StorageConfig) error {
+	switch cfg.Provider {
+	case "local":
+		if cfg.LocalPath == "" {
+			return fmt.Errorf("UPLOAD_DIR is required for local storage")
+		}
+	case "gcs":
+		if cfg.ProjectID == "" {
+			return fmt.Errorf("GCS_PROJECT_ID is required for GCS storage")
+		}
+		if cfg.BucketName == "" {
+			return fmt.Errorf("GCS_BUCKET_NAME is required for GCS storage")
+		}
+	default:
+		return fmt.Errorf("unsupported storage provider: %s", cfg.Provider)
+	}
+	return nil
+}
+
+// parseUploadMaxSize parses the UPLOAD_MAX_SIZE environment variable
 // Value is expected to be postfixed with "MB" for megabytes or "GB" for gigabytes, e.g. "100MB"
 // If no postfix is provided, the value is assumed to be in megabytes
 func parseUploadMaxSize(size string) (int64, error) {

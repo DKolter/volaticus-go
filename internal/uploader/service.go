@@ -3,52 +3,18 @@ package uploader
 import (
 	"context"
 	"fmt"
-	"io"
 	"mime/multipart"
 	"net/http"
-	"os"
 	"path/filepath"
 	"strings"
 	"time"
 	"volaticus-go/internal/common/models"
 	"volaticus-go/internal/config"
+	"volaticus-go/internal/storage"
 
 	"github.com/google/uuid"
 	"github.com/rs/zerolog/log"
 )
-
-type Service interface {
-	UploadFile(ctx context.Context, req *UploadRequest) (*models.CreateFileResponse, error)
-	GetFile(ctx context.Context, fileurl string) (*models.UploadedFile, error)
-	GetUserFiles(ctx context.Context, userID uuid.UUID, limit, offset int) ([]*models.UploadedFile, error)
-	GetUserFilesCount(ctx context.Context, userID uuid.UUID) (int, error)
-	DeleteFileByID(ctx context.Context, fileID, userID uuid.UUID) error
-	GetFileStats(ctx context.Context, userID uuid.UUID) (*models.FileStats, error)
-	ValidateFile(ctx context.Context, file multipart.File, header *multipart.FileHeader) *FileValidationResult
-	CleanupExpiredFiles(ctx context.Context) error
-}
-
-type service struct {
-	repo         Repository
-	config       config.Config
-	urlGenerator *URLGenerator
-}
-
-func NewService(repo Repository, config *config.Config) *service {
-	// Make sure that directory exists
-	if err := os.MkdirAll(config.UploadDirectory, 0755); err != nil {
-		log.Fatal().
-			Err(err).
-			Str("path", config.UploadDirectory).
-			Msg("failed to create upload directory")
-	}
-
-	return &service{
-		repo:         repo,
-		config:       *config,
-		urlGenerator: NewURLGenerator(),
-	}
-}
 
 // UploadRequest represents file upload parameters
 type UploadRequest struct {
@@ -67,69 +33,52 @@ type FileValidationResult struct {
 	Error       string
 }
 
-// VerifyFile checks if the file meets upload requirements
-func (s *service) VerifyFile(ctx context.Context, file multipart.File, header *multipart.FileHeader, userID uuid.UUID) *FileValidationResult {
-	result := &FileValidationResult{
-		FileName: header.Filename,
-		FileSize: header.Size,
-	}
+type Service interface {
+	// UploadFile handles file uploads
+	UploadFile(ctx context.Context, req *UploadRequest) (*models.CreateFileResponse, error)
 
-	// Check file size
-	if header.Size > s.config.UploadMaxSize {
-		result.Error = "File too large"
-		return result
-	}
+	// GetFile retrieves file information
+	GetFile(ctx context.Context, fileUrl string) (*models.UploadedFile, error)
 
-	// Get user file stats
-	stats, err := s.GetFileStats(ctx, userID)
-	if err != nil {
-		result.Error = "Error fetching file stats"
-		return result
-	}
+	// ServeFile serves a file to an HTTP response
+	ServeFile(ctx context.Context, w http.ResponseWriter, file *models.UploadedFile) error
 
-	// Check user upload limit
-	if stats.TotalSize+header.Size > s.config.UploadUserMaxSize {
-		result.Error = "User upload limit reached"
-		return result
-	}
+	// DeleteFileByID deletes a file
+	DeleteFileByID(ctx context.Context, fileID, userID uuid.UUID) error
 
-	// Read first 512 bytes for content type detection
-	buff := make([]byte, 512)
-	if _, err := file.Read(buff); err != nil {
-		log.Error().
-			Err(err).
-			Str("filename", header.Filename).
-			Msg("error reading file for content type detection")
-		result.Error = "Error reading file"
-		return result
-	}
+	// GetFileStats returns statistics about uploaded files
+	GetFileStats(ctx context.Context, userID uuid.UUID) (*models.FileStats, error)
 
-	// Reset file pointer
-	if _, err := file.Seek(0, 0); err != nil {
-		log.Error().
-			Err(err).
-			Str("filename", header.Filename).
-			Msg("error resetting file pointer")
-		result.Error = "Error processing file"
-		return result
-	}
+	// CleanupExpiredFiles removes expired files
+	CleanupExpiredFiles(ctx context.Context) error
 
-	// Detect content type
-	contentType := http.DetectContentType(buff)
-	result.ContentType = contentType
+	// SyncStorageWithDatabase ensures storage and database are in sync
+	SyncStorageWithDatabase(ctx context.Context) error
 
-	// Here we could add more checks like file type, etc.
-	// and allow/deny based on that, for example only allow images, textfiles, etc.
-
-	result.IsValid = true
-	return result
+	// ValidateFile validates an uploaded file
+	ValidateFile(ctx context.Context, file multipart.File, header *multipart.FileHeader) *FileValidationResult
 }
 
-// func (s *service) VerifyMaxUploadSize()
+type service struct {
+	repo         Repository
+	config       *config.Config
+	storage      storage.StorageProvider
+	urlGenerator *URLGenerator
+}
 
-func (s *service) UploadFile(ctx context.Context, req *UploadRequest, userID uuid.UUID) (*models.CreateFileResponse, error) {
+func NewService(repo Repository, config *config.Config, storage storage.StorageProvider) *service {
+	return &service{
+		repo:         repo,
+		config:       config,
+		storage:      storage,
+		urlGenerator: NewURLGenerator(),
+	}
+}
+
+// UploadFile handles the file upload process
+func (s *service) UploadFile(ctx context.Context, req *UploadRequest) (*models.CreateFileResponse, error) {
 	// Verify file first
-	validation := s.VerifyFile(ctx, req.File, req.Header, userID)
+	validation := s.ValidateFile(ctx, req.File, req.Header)
 	if !validation.IsValid {
 		return nil, fmt.Errorf("file validation failed: %s", validation.Error)
 	}
@@ -142,7 +91,6 @@ func (s *service) UploadFile(ctx context.Context, req *UploadRequest, userID uui
 
 	// Add extension if not present
 	ext := filepath.Ext(req.Header.Filename)
-
 	if ext != "" && !strings.Contains(urlValue, ext) {
 		urlValue = urlValue + ext
 	}
@@ -150,9 +98,9 @@ func (s *service) UploadFile(ctx context.Context, req *UploadRequest, userID uui
 	unixTimestamp := uint64(time.Now().UnixNano())
 	uniqueFilename := fmt.Sprintf("%d%s", unixTimestamp, ext)
 
-	// Create physical file
-	if err := s.saveFile(req.File, uniqueFilename); err != nil {
-		return nil, fmt.Errorf("saving file: %w", err)
+	// Upload file to storage
+	if _, err := s.storage.Upload(ctx, req.File, uniqueFilename); err != nil {
+		return nil, fmt.Errorf("saving file to storage: %w", err)
 	}
 
 	// Create uploaded file record
@@ -171,244 +119,213 @@ func (s *service) UploadFile(ctx context.Context, req *UploadRequest, userID uui
 
 	// Save to database
 	if err := s.repo.CreateWithURL(ctx, uploadedFile, urlValue); err != nil {
-		// Rollback file creation
-		log.Error().
-			Err(err).
-			Str("filename", uniqueFilename).
-			Msg("error saving to database, rolling back file creation")
-
-		if err := os.Remove(filepath.Join(s.config.UploadDirectory, uniqueFilename)); err != nil {
-			log.Error().
-				Err(err).
-				Str("filename", uniqueFilename).
-				Msg("error removing file during rollback")
+		// Rollback file creation if database save fails
+		if delErr := s.storage.Delete(ctx, uniqueFilename); delErr != nil {
+			log.Printf("Error cleaning up file after failed database save: %v", delErr)
 		}
 		return nil, fmt.Errorf("saving to database: %w", err)
 	}
 
+	// Get URL for response
+	url, _, err := s.storage.GetURL(ctx, urlValue)
+	if err != nil {
+		return nil, fmt.Errorf("getting file URL: %w", err)
+	}
+
 	return &models.CreateFileResponse{
-		FileUrl:      fmt.Sprintf("%s/f/%s", s.config.BaseURL, urlValue),
+		FileUrl:      url,
 		OriginalName: req.Header.Filename,
 		UnixFilename: urlValue,
 	}, nil
 }
 
-// GetFile retrieves file information using the urlvalue
-func (s *service) GetFile(ctx context.Context, fileurl string) (*models.UploadedFile, error) {
-
-	file, err := s.repo.GetByURLValue(ctx, fileurl)
+// GetFile retrieves file information
+func (s *service) GetFile(ctx context.Context, fileUrl string) (*models.UploadedFile, error) {
+	file, err := s.repo.GetByURLValue(ctx, fileUrl)
 	if err != nil {
 		return nil, fmt.Errorf("retrieving file: %w", err)
 	}
 
+	// Check if file is expired
+	if !file.ExpiresAt.IsZero() && time.Now().After(file.ExpiresAt) {
+		return nil, fmt.Errorf("file has expired")
+	}
+
 	if err := s.repo.IncrementAccessCount(ctx, file.ID); err != nil {
-		// Log but don't fail the request if increment fails
-		log.Warn().
-			Err(err).
-			Str("file_id", file.ID.String()).
-			Msg("error incrementing access count")
+		log.Printf("Error incrementing access count: %v", err)
 	}
 
 	return file, nil
 }
 
-// saveFile saves the uploaded file to disk
-func (s *service) saveFile(file multipart.File, filename string) error {
-	dst, err := os.Create(filepath.Join(s.config.UploadDirectory, filename))
-	if err != nil {
-		return fmt.Errorf("creating file: %w", err)
-	}
-	defer func(dst *os.File) {
-		if err := dst.Close(); err != nil {
-			log.Error().
-				Err(err).
-				Str("path", dst.Name()).
-				Msg("error closing file")
-		}
-	}(dst)
-
-	if _, err := io.Copy(dst, file); err != nil {
-		return fmt.Errorf("writing file: %w", err)
-	}
-
-	return nil
+// ServeFile serves the file through the storage provider
+func (s *service) ServeFile(ctx context.Context, w http.ResponseWriter, file *models.UploadedFile) error {
+	return s.storage.Stream(ctx, file.UniqueFilename, w)
 }
 
-func StartExpiredFilesWorker(ctx context.Context, svc *service, interval time.Duration) {
-	// Initial cleanup
-	if err := svc.CleanupExpiredFiles(ctx); err != nil {
-		log.Error().
-			Err(err).
-			Msg("error cleaning up expired files")
-	}
-	if err := svc.CleanupOrphanedFiles(ctx); err != nil {
-		log.Error().
-			Err(err).
-			Msg("error cleaning up orphaned files")
+// ValidateFile checks if the file meets upload requirements
+func (s *service) ValidateFile(ctx context.Context, file multipart.File, header *multipart.FileHeader) *FileValidationResult {
+	result := &FileValidationResult{
+		FileName: header.Filename,
+		FileSize: header.Size,
 	}
 
-	ticker := time.NewTicker(interval)
+	if header.Size > s.config.UploadMaxSize {
+		result.Error = fmt.Sprintf("File too large (max %d MB)", s.config.UploadMaxSize/1024/1024)
+		return result
+	}
 
-	go func() {
-		for range ticker.C {
-			if err := svc.CleanupExpiredFiles(ctx); err != nil {
-				log.Error().
-					Err(err).
-					Msg("error cleaning up expired files")
-			}
-		}
-	}()
+	// Read first 512 bytes for content type detection
+	buff := make([]byte, 512)
+	if _, err := file.Read(buff); err != nil {
+		result.Error = "Error reading file"
+		return result
+	}
+
+	if _, err := file.Seek(0, 0); err != nil {
+		result.Error = "Error processing file"
+		return result
+	}
+
+	result.ContentType = http.DetectContentType(buff)
+	result.IsValid = true
+	return result
 }
 
-// DeleteFile deletes the physical file from the disk
-func (s *service) DeleteFile(filename string) error {
-	filePath := filepath.Join(s.config.UploadDirectory, filename)
-	if err := os.Remove(filePath); err != nil {
-		return fmt.Errorf("deleting file: %w", err)
-	}
-	return nil
+// GetUserFiles retrieves all files for a user
+func (s *service) GetUserFiles(ctx context.Context, userID uuid.UUID, limit, offset int) ([]*models.UploadedFile, error) {
+	return s.repo.GetUserFiles(ctx, userID, limit, offset)
 }
 
-// DeleteFileByID deletes the file from the database and disk by ID
+// GetUserFilesCount gets the total number of files for a user
+func (s *service) GetUserFilesCount(ctx context.Context, userID uuid.UUID) (int, error) {
+	return s.repo.GetUserFilesCount(ctx, userID)
+}
+
+// DeleteFileByID deletes a file
 func (s *service) DeleteFileByID(ctx context.Context, fileID, userID uuid.UUID) error {
-	// Get file details first to get the filename
 	file, err := s.repo.GetByID(ctx, fileID)
 	if err != nil {
 		return fmt.Errorf("getting file details: %w", err)
 	}
 
-	// Check if the file belongs to the user
 	if file.UserID != userID {
 		return ErrUnauthorized
 	}
 
-	// Delete from database
+	if err := s.storage.Delete(ctx, file.UniqueFilename); err != nil {
+		return fmt.Errorf("deleting file from storage: %w", err)
+	}
+
 	if err := s.repo.Delete(ctx, fileID); err != nil {
+		log.Printf("Warning: File deleted from storage but database deletion failed: %v", err)
 		return fmt.Errorf("deleting file from database: %w", err)
 	}
 
-	// Delete physical file
-	path := filepath.Join(s.config.UploadDirectory, file.UniqueFilename)
-	if err := os.Remove(path); err != nil && !os.IsNotExist(err) {
-		// Log but don't fail if physical file is already gone
-		log.Warn().
-			Err(err).
-			Str("path", path).
-			Msg("error deleting physical file")
-	}
-
 	return nil
 }
 
-// CleanupExpiredFiles retrieves and deletes expired files.
+// ListStorageFiles lists all files in storage
+func (s *service) ListStorageFiles(ctx context.Context, prefix string) ([]storage.FileInfo, error) {
+	files, err := s.storage.ListFiles(ctx, prefix)
+	if err != nil {
+		return nil, fmt.Errorf("listing files from storage: %w", err)
+	}
+
+	dbFiles, err := s.repo.GetAllFiles(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("retrieving database files: %w", err)
+	}
+
+	dbFileMap := make(map[string]*models.UploadedFile)
+	for _, file := range dbFiles {
+		dbFileMap[file.UniqueFilename] = file
+	}
+
+	var validFiles []storage.FileInfo
+	for _, file := range files {
+		if _, exists := dbFileMap[file.Name]; exists {
+			validFiles = append(validFiles, file)
+		} else {
+			// Optionally log orphaned files
+			log.Printf("Found orphaned file in storage: %s", file.Name)
+		}
+	}
+
+	return validFiles, nil
+}
+
+// CleanupExpiredFiles removes expired files
 func (s *service) CleanupExpiredFiles(ctx context.Context) error {
 	files, err := s.repo.GetExpiredFiles(ctx)
 	if err != nil {
-		return err
-	}
-	if len(files) > 0 {
-		log.Info().
-			Int("count", len(files)).
-			Msg("found expired files")
+		return fmt.Errorf("getting expired files: %w", err)
 	}
 
 	for _, file := range files {
-		if err := s.repo.Delete(ctx, file.ID); err != nil {
-			log.Error().
-				Err(err).
-				Str("file_id", file.ID.String()).
-				Msg("error deleting file from database")
+		if err := s.storage.Delete(ctx, file.UniqueFilename); err != nil {
+			log.Printf("Error deleting expired file %s from storage: %v", file.UniqueFilename, err)
 			continue
 		}
-		if err := s.DeleteFile(file.UniqueFilename); err != nil {
-			log.Error().
-				Err(err).
-				Str("filename", file.UniqueFilename).
-				Msg("error deleting file from disk")
-		}
-	}
-	return nil
-}
 
-// CleanupOrphanedFiles deletes files in the uploadDir that are not in the database and vice versa.
-func (s *service) CleanupOrphanedFiles(ctx context.Context) error {
-	filesInDir, err := os.ReadDir(s.config.UploadDirectory)
-	if err != nil {
-		return fmt.Errorf("reading upload directory: %w", err)
-	}
-
-	filesInDB, err := s.repo.GetAllFiles(ctx)
-	if err != nil {
-		return fmt.Errorf("retrieving files from database: %w", err)
-	}
-
-	fileMap := make(map[string]bool)
-	for _, file := range filesInDir {
-		fileMap[file.Name()] = true
-	}
-
-	var deletedCount int
-	for _, file := range filesInDir {
-		if !fileMap[file.Name()] {
-			if err := s.DeleteFile(file.Name()); err != nil {
-				log.Error().
-					Err(err).
-					Str("filename", file.Name()).
-					Msg("error deleting orphaned file")
-			} else {
-				deletedCount++
-			}
-		}
-	}
-	if deletedCount > 0 {
-		log.Info().
-			Int("count", deletedCount).
-			Msg("deleted orphaned files")
-	}
-
-	var missingFiles []string
-	for _, file := range filesInDB {
-		if !fileMap[file.UniqueFilename] {
-			missingFiles = append(missingFiles, file.UniqueFilename)
-		}
-	}
-	if len(missingFiles) > 0 {
-		log.Info().
-			Strs("files", missingFiles).
-			Msg("files in database but missing in directory")
-
-		for _, file := range missingFiles {
-			if err := s.repo.DeleteByUniqueName(ctx, file); err != nil {
-				log.Error().
-					Err(err).
-					Str("filename", file).
-					Msg("error deleting database entry for missing file")
-			}
+		if err := s.repo.Delete(ctx, file.ID); err != nil {
+			log.Printf("Error deleting expired file %s record: %v", file.UniqueFilename, err)
 		}
 	}
 
 	return nil
 }
 
-// Update the GetUserFiles method to include stats
-func (s *service) GetUserFiles(ctx context.Context, userID uuid.UUID, limit, offset int) ([]*models.UploadedFile, error) {
-	files, err := s.repo.GetUserFiles(ctx, userID, limit, offset)
+// SyncStorageWithDatabase ensures storage and database are in sync
+func (s *service) SyncStorageWithDatabase(ctx context.Context) error {
+	storageFiles, err := s.storage.ListFiles(ctx, "")
 	if err != nil {
-		return nil, fmt.Errorf("getting user files: %w", err)
+		return fmt.Errorf("listing storage files: %w", err)
 	}
 
-	return files, nil
-}
-
-func (s *service) GetUserFilesCount(ctx context.Context, userID uuid.UUID) (int, error) {
-	count, err := s.repo.GetUserFilesCount(ctx, userID)
+	dbFiles, err := s.repo.GetAllFiles(ctx)
 	if err != nil {
-		return 0, fmt.Errorf("getting user files count: %w", err)
+		return fmt.Errorf("getting database files: %w", err)
 	}
-	return count, nil
+
+	storageMap := make(map[string]storage.FileInfo)
+	for _, file := range storageFiles {
+		storageMap[file.Name] = file
+	}
+
+	dbMap := make(map[string]*models.UploadedFile)
+	for _, file := range dbFiles {
+		dbMap[file.UniqueFilename] = file
+	}
+
+	// Find and handle orphaned storage files
+	for name := range storageMap {
+		if _, exists := dbMap[name]; !exists {
+			log.Printf("Deleting orphaned storage file: %s", name)
+			if err := s.storage.Delete(ctx, name); err != nil {
+				log.Printf("Error deleting orphaned file %s: %v", name, err)
+			}
+		}
+	}
+
+	for name, file := range dbMap {
+		if _, exists := storageMap[name]; !exists {
+			log.Printf("Deleting orphaned database record: %s", name)
+			if err := s.repo.Delete(ctx, file.ID); err != nil {
+				log.Printf("Error deleting orphaned record %s: %v", name, err)
+			}
+		}
+	}
+
+	return nil
 }
 
 // GetFileStats retrieves statistics about uploaded files
 func (s *service) GetFileStats(ctx context.Context, userID uuid.UUID) (*models.FileStats, error) {
 	return s.repo.GetFileStats(ctx, userID)
+}
+
+// GetMaxUploadSize returns the configured maximum upload size
+func (s *service) GetMaxUploadSize() int64 {
+	return s.config.UploadMaxSize
 }

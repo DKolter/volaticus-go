@@ -21,7 +21,7 @@ var (
 // GetGeoIPService returns a singleton instance of GeoIPService
 func GetGeoIPService() *GeoIPService {
 	geoIPOnce.Do(func() {
-		dbPath := "internal/database/GeoLite2-City.mmdb"
+		dbPath := "./GeoLite2-City.mmdb"
 
 		reader, err := geoip2.Open(dbPath)
 		if err != nil {

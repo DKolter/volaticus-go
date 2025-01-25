@@ -28,7 +28,7 @@ func (s *Server) handleUrlShort(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) handleUpload(w http.ResponseWriter, r *http.Request) {
-	templ.Handler(pages.UploadPage()).ServeHTTP(w, r)
+	templ.Handler(pages.UploadPage((s.config.UploadExpiresIn))).ServeHTTP(w, r)
 }
 
 func (s *Server) handleFiles(w http.ResponseWriter, r *http.Request) {

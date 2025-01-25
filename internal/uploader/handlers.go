@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"mime/multipart"
 	"net/http"
-	"path/filepath"
 	"strconv"
 	"volaticus-go/cmd/web/components"
 	"volaticus-go/cmd/web/pages"
@@ -22,6 +21,15 @@ const (
 	defaultPageSize = 10
 	maxPageSize     = 50
 )
+
+type Haaandler interface {
+	HandleUpload(w http.ResponseWriter, r *http.Request)
+	HandleAPIUpload(w http.ResponseWriter, r *http.Request)
+	HandleServeFile(w http.ResponseWriter, r *http.Request)
+	HandleFilesList(w http.ResponseWriter, r *http.Request)
+	HandleDeleteFile(w http.ResponseWriter, r *http.Request)
+	HandleGetFileStats(w http.ResponseWriter, r *http.Request)
+}
 
 type Handler struct {
 	service *service
@@ -62,7 +70,7 @@ func (h *Handler) HandleVerifyFile(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Validate the file using service
-	result := h.service.VerifyFile(r.Context(), file, header, userContext.ID)
+	result := h.service.ValidateFile(r.Context(), file, header)
 
 	if !result.IsValid {
 		err := components.ValidationError(result.Error).Render(r.Context(), w)
@@ -111,17 +119,15 @@ func (h *Handler) HandleUpload(w http.ResponseWriter, r *http.Request) {
 	// Parse the URL type from the form
 	urlType := r.FormValue("url_type")
 	if urlType == "" {
-		urlType = "default" // Use default if not specified
+		urlType = "default"
 	}
 
-	// Convert string to URLType
 	parsedURLType, err := ParseURLType(urlType)
 	if err != nil {
 		http.Error(w, "Invalid URL type", http.StatusBadRequest)
 		return
 	}
 
-	// Create upload request
 	uploadReq := &UploadRequest{
 		File:    file,
 		Header:  header,
@@ -129,7 +135,7 @@ func (h *Handler) HandleUpload(w http.ResponseWriter, r *http.Request) {
 		UserID:  userContext.ID,
 	}
 
-	response, err := h.service.UploadFile(r.Context(), uploadReq, userContext.ID)
+	response, err := h.service.UploadFile(r.Context(), uploadReq)
 	if err != nil {
 		log.Error().
 			Err(err).
@@ -149,25 +155,29 @@ func (h *Handler) HandleUpload(w http.ResponseWriter, r *http.Request) {
 			Str("originalName", response.OriginalName).
 			Msg("Error rendering success template")
 		http.Error(w, "Error rendering response", http.StatusInternalServerError)
-		return
 	}
 }
 
 // HandleServeFile serves the uploaded file
 func (h *Handler) HandleServeFile(w http.ResponseWriter, r *http.Request) {
-	urlvalue := chi.URLParam(r, "fileUrl")
+	urlValue := chi.URLParam(r, "fileUrl")
 	log.Info().
-		Str("fileUrl", urlvalue).
+		Str("fileUrl", urlValue).
 		Msg("Got Serve File Request")
 
-	if urlvalue == "" {
+	if urlValue == "" {
 		http.Error(w, "File not found", http.StatusNotFound)
 		return
 	}
 
-	file, err := h.service.GetFile(r.Context(), urlvalue)
+	file, err := h.service.GetFile(r.Context(), urlValue)
 	if err != nil {
-		http.Error(w, "File not found", http.StatusNotFound)
+		if errors.Is(err, ErrNoRows) {
+			http.Error(w, "File not found", http.StatusNotFound)
+		} else {
+			log.Printf("Error retrieving file: %v", err)
+			http.Error(w, "Error retrieving file", http.StatusInternalServerError)
+		}
 		return
 	}
 
@@ -188,12 +198,24 @@ func (h *Handler) HandleServeFile(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Disposition", fmt.Sprintf(`inline; filename="%s"`, file.OriginalName))
 	}
 
-	path := filepath.Join(h.service.config.UploadDirectory, file.UniqueFilename)
-	log.Info().
-		Str("path", path).
-		Msg("Serving file from path")
-	http.ServeFile(w, r, path)
+	// Add cache control
+	w.Header().Set("Cache-Control", "public, max-age=86400") // 24 hours
+	w.Header().Set("ETag", fmt.Sprintf(`"%s"`, file.UniqueFilename))
 
+	// Check if client has a cached version
+	if match := r.Header.Get("If-None-Match"); match != "" {
+		if match == fmt.Sprintf(`"%s"`, file.UniqueFilename) {
+			w.WriteHeader(http.StatusNotModified)
+			return
+		}
+	}
+
+	// Serve the file
+	if err := h.service.ServeFile(r.Context(), w, file); err != nil {
+		log.Printf("Error serving file: %v", err)
+		http.Error(w, "Error serving file", http.StatusInternalServerError)
+		return
+	}
 }
 
 type APIUploadResponse struct {
@@ -244,7 +266,6 @@ func (h *Handler) HandleAPIUpload(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Get file from request
 	file, header, err := r.FormFile("file")
 	if err != nil {
 		status := http.StatusBadRequest
@@ -269,7 +290,7 @@ func (h *Handler) HandleAPIUpload(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Parse URL type from header (optional)
+	// Parse URL type from header
 	urlType := URLTypeDefault
 	if typeHeader := r.Header.Get("Url-Type"); typeHeader != "" {
 		parsedType, err := ParseURLType(typeHeader)
@@ -280,7 +301,6 @@ func (h *Handler) HandleAPIUpload(w http.ResponseWriter, r *http.Request) {
 		urlType = parsedType
 	}
 
-	// Create upload request
 	uploadReq := &UploadRequest{
 		File:    file,
 		Header:  header,
@@ -288,8 +308,7 @@ func (h *Handler) HandleAPIUpload(w http.ResponseWriter, r *http.Request) {
 		UserID:  userContext.ID,
 	}
 
-	// Process upload
-	response, err := h.service.UploadFile(r.Context(), uploadReq, userContext.ID)
+	response, err := h.service.UploadFile(r.Context(), uploadReq)
 	if err != nil {
 		// Log the internal error but don't send it to the client
 		log.Error().
@@ -299,7 +318,6 @@ func (h *Handler) HandleAPIUpload(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Return success response
 	sendAPIResponse(w, http.StatusOK, true, response.FileUrl, nil)
 }
 
