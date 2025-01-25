@@ -35,6 +35,7 @@ services:
     command: [
     "-scheme", "http",
     "-public-host", "gcs-emulator",
+    "-external-url", "http://gcs-emulator:4443",
     "-port", "4443",
     "-log-level", "debug",
     "-host", "0.0.0.0"

@@ -54,6 +54,19 @@ func NewGCSStorage(projectID, bucketName string) (*GCSStorageProvider, error) {
 
 	bucket := client.Bucket(bucketName)
 
+	_, err = bucket.Attrs(ctx)
+	if errors.Is(err, storage.ErrBucketNotExist) {
+		log.Printf("Bucket %s does not exist, creating...", bucketName)
+		if err := bucket.Create(ctx, projectID, &storage.BucketAttrs{
+			Location: "US-CENTRAL1",
+		}); err != nil {
+			return nil, fmt.Errorf("failed to create bucket: %w", err)
+		}
+		log.Printf("Successfully created bucket %s", bucketName)
+	} else if err != nil {
+		return nil, fmt.Errorf("failed to check bucket: %w", err)
+	}
+
 	return &GCSStorageProvider{
 		client:     client,
 		bucket:     bucket,
@@ -61,32 +74,15 @@ func NewGCSStorage(projectID, bucketName string) (*GCSStorageProvider, error) {
 	}, nil
 }
 
-func ensureBucketExists(ctx context.Context, bucket *storage.BucketHandle) error {
-	if _, err := bucket.Attrs(ctx); err != nil {
-		if errors.Is(err, storage.ErrBucketNotExist) {
-			log.Printf("Bucket does not exist, creating...")
-			if err := bucket.Create(ctx, "", nil); err != nil {
-				return fmt.Errorf("failed to create bucket: %w", err)
-			}
-			log.Printf("Bucket created successfully")
-		} else {
-			return fmt.Errorf("failed to get bucket attributes: %w", err)
-		}
-	}
-	return nil
-}
-
 func (g *GCSStorageProvider) Upload(ctx context.Context, file io.Reader, filename string) (string, error) {
 	obj := g.bucket.Object(filename)
 	writer := obj.NewWriter(ctx)
 
-	writer.ChunkSize = 16 * 1024 * 1024 // 16MB chunks
-	writer.ObjectAttrs.CacheControl = "public, max-age=86400"
-
-	// Create a buffer to improve copy performance
-	buf := make([]byte, 1024*1024) // 1MB buffer
-	if _, err := io.CopyBuffer(writer, file, buf); err != nil {
-		writer.Close()
+	if _, err := io.Copy(writer, file); err != nil {
+		err := writer.Close()
+		if err != nil {
+			return "", err
+		}
 		return "", fmt.Errorf("failed to copy file to GCS: %w", err)
 	}
 
@@ -178,7 +174,7 @@ func (g *GCSStorageProvider) GetURL(ctx context.Context, filename string) (strin
 }
 
 func (g *GCSStorageProvider) ListFiles(ctx context.Context, prefix string) ([]FileInfo, error) {
-	log.Printf("ListFiles called with prefix: '%s'", prefix)
+	log.Printf("ListFiles called with prefix: %s'", prefix)
 
 	var files []FileInfo
 	it := g.bucket.Objects(ctx, &storage.Query{
@@ -194,7 +190,6 @@ func (g *GCSStorageProvider) ListFiles(ctx context.Context, prefix string) ([]Fi
 			log.Printf("Error iterating objects: %v", err)
 			return nil, fmt.Errorf("error iterating objects: %w", err)
 		}
-		log.Printf("Found file: %s", attrs.Name)
 		files = append(files, FileInfo{
 			Name:         attrs.Name,
 			Size:         attrs.Size,
