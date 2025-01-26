@@ -3,7 +3,7 @@ package user
 import (
 	"encoding/json"
 	"errors"
-	"log"
+	"github.com/rs/zerolog/log"
 	"net/http"
 	"volaticus-go/internal/common/models"
 	"volaticus-go/internal/validation"
@@ -32,7 +32,7 @@ func NewHandler(service Service, authService AuthService) *Handler {
 type CreateUserRequest struct {
 	Email    string `json:"email" validate:"required,email"`
 	Username string `json:"username" validate:"required,min=3,max=50"`
-	Password string `json:"password" validate:"required,min=8"`
+	Password string `json:"password" validate:"required,password"`
 }
 
 // UpdateUserRequest represents the data that can be updated for a user
@@ -68,7 +68,10 @@ func (h *Handler) HandleRegister(w http.ResponseWriter, r *http.Request) {
 		case errors.Is(err, ErrUsernameExists):
 			http.Error(w, "Username already exists", http.StatusConflict)
 		default:
-			log.Printf("Error registering user: %v", err)
+			log.Error().
+				Err(err).
+				Str("username", req.Username).
+				Msg("Failed to register user")
 			http.Error(w, "Internal server error", http.StatusInternalServerError)
 		}
 		return
@@ -76,7 +79,10 @@ func (h *Handler) HandleRegister(w http.ResponseWriter, r *http.Request) {
 
 	token, err := h.authService.GenerateToken(user)
 	if err != nil {
-		log.Printf("Error generating token: %v", err)
+		log.Error().
+			Err(err).
+			Str("user_id", user.ID.String()).
+			Msg("Failed to generate token")
 		http.Error(w, "Error generating token", http.StatusInternalServerError)
 		return
 	}
@@ -123,7 +129,10 @@ func (h *Handler) HandleLogin(w http.ResponseWriter, r *http.Request) {
 		case errors.Is(err, ErrInvalidCredentials):
 			http.Error(w, "Invalid credentials", http.StatusUnauthorized)
 		default:
-			log.Printf("Error validating credentials: %v", err)
+			log.Error().
+				Err(err).
+				Str("username", req.Username).
+				Msg("Error validating user credentials")
 			http.Error(w, "Internal server error", http.StatusInternalServerError)
 		}
 		return
@@ -131,7 +140,10 @@ func (h *Handler) HandleLogin(w http.ResponseWriter, r *http.Request) {
 
 	token, err := h.authService.GenerateToken(user)
 	if err != nil {
-		log.Printf("Error generating token: %v", err)
+		log.Error().
+			Err(err).
+			Str("user_id", user.ID.String()).
+			Msg("Failed to generate auth token")
 		http.Error(w, "Error generating token", http.StatusInternalServerError)
 		return
 	}

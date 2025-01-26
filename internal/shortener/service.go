@@ -4,7 +4,6 @@ import (
 	"context"
 	"crypto/rand"
 	"fmt"
-	"log"
 	"math/big"
 	"net/url"
 	"regexp"
@@ -13,6 +12,7 @@ import (
 	"volaticus-go/internal/config"
 
 	"github.com/google/uuid"
+	"github.com/rs/zerolog/log"
 )
 
 const (
@@ -121,12 +121,20 @@ func (s *Service) GetOriginalURL(ctx context.Context, shortCode string, r *model
 		}
 
 		if err := s.repo.RecordClick(asyncCtx, analytics); err != nil {
-			// Log error but don't fail the request
-			log.Printf("Error recording click: %v\n", err)
+			log.Error().
+				Err(err).
+				Str("url_id", shortenedURL.ID.String()).
+				Str("short_code", shortCode).
+				Str("ip", r.IPAddress).
+				Msg("Failed to record click analytics")
 		}
 
 		if err := s.repo.IncrementAccessCount(asyncCtx, shortenedURL.ID); err != nil {
-			log.Printf("Error incrementing access count: %v\n", err)
+			log.Error().
+				Err(err).
+				Str("url_id", shortenedURL.ID.String()).
+				Str("short_code", shortCode).
+				Msg("Failed to increment access count")
 		}
 	}()
 
@@ -239,7 +247,12 @@ func (s *Service) CleanupExpiredURLs(ctx context.Context) error {
 	for _, url := range urls {
 		url.IsActive = false
 		if err := s.repo.Update(ctx, url); err != nil {
-			log.Printf("Error deactivating URL %s: %v\n", url.ShortCode, err)
+			log.Error().
+				Err(err).
+				Str("url_id", url.ID.String()).
+				Str("short_code", url.ShortCode).
+				Time("expires_at", *url.ExpiresAt).
+				Msg("Failed to deactivate expired URL")
 		}
 	}
 

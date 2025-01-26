@@ -3,12 +3,12 @@ package database
 import (
 	"context"
 	"fmt"
-	"log"
 	"os"
 	"time"
 
 	_ "github.com/jackc/pgx/v5/stdlib"
 	"github.com/jmoiron/sqlx"
+	"github.com/rs/zerolog/log"
 )
 
 // DB represents a database instance and implements Service
@@ -41,6 +41,16 @@ func New(cfg Config) (*DB, error) {
 	db.SetMaxIdleConns(5)
 	db.SetConnMaxLifetime(5 * time.Minute)
 
+	log.Info().
+		Str("host", cfg.Host).
+		Str("port", cfg.Port).
+		Str("database", cfg.Database).
+		Str("schema", cfg.Schema).
+		Int("max_open_conns", 25).
+		Int("max_idle_conns", 5).
+		Dur("conn_max_lifetime", 5*time.Minute).
+		Msg("database connection established")
+
 	return &DB{DB: db}, nil
 }
 
@@ -63,6 +73,9 @@ func (db *DB) Health(ctx context.Context) map[string]string {
 
 	// Check database connectivity
 	if err := db.PingContext(ctx); err != nil {
+		log.Error().
+			Err(err).
+			Msg("database health check failed")
 		stats["status"] = "down"
 		stats["error"] = fmt.Sprintf("database ping failed: %v", err)
 		return stats
@@ -75,15 +88,25 @@ func (db *DB) Health(ctx context.Context) map[string]string {
 	stats["in_use"] = fmt.Sprintf("%d", dbStats.InUse)
 	stats["idle"] = fmt.Sprintf("%d", dbStats.Idle)
 
+	log.Info().
+		Int("open_connections", dbStats.OpenConnections).
+		Int("in_use", dbStats.InUse).
+		Int("idle", dbStats.Idle).
+		Msg("database health check completed")
+
 	return stats
 }
 
 // Close closes the database connection
 func (db *DB) Close() error {
 	if err := db.DB.Close(); err != nil {
+		log.Error().
+			Err(err).
+			Msg("error closing database connection")
 		return fmt.Errorf("closing database connection: %w", err)
 	}
-	log.Printf("Database connection closed")
+
+	log.Info().Msg("database connection closed successfully")
 	return nil
 }
 
@@ -91,25 +114,40 @@ func (db *DB) Close() error {
 func (db *DB) WithTx(ctx context.Context, fn func(*sqlx.Tx) error) error {
 	tx, err := db.BeginTxx(ctx, nil)
 	if err != nil {
+		log.Error().
+			Err(err).
+			Msg("failed to begin transaction")
 		return fmt.Errorf("beginning transaction: %w", err)
 	}
 
 	defer func() {
 		if p := recover(); p != nil {
 			// A panic occurred, rollback and repanic
-			_ = tx.Rollback()
+			if rbErr := tx.Rollback(); rbErr != nil {
+				log.Error().
+					Err(rbErr).
+					Interface("panic", p).
+					Msg("failed to rollback transaction after panic")
+			}
 			panic(p)
 		}
 	}()
 
 	if err := fn(tx); err != nil {
 		if rbErr := tx.Rollback(); rbErr != nil {
+			log.Error().
+				Err(rbErr).
+				Err(err).
+				Msg("failed to rollback transaction")
 			return fmt.Errorf("rolling back transaction: %v (original error: %w)", rbErr, err)
 		}
 		return err
 	}
 
 	if err := tx.Commit(); err != nil {
+		log.Error().
+			Err(err).
+			Msg("failed to commit transaction")
 		return fmt.Errorf("committing transaction: %w", err)
 	}
 

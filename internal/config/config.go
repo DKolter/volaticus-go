@@ -2,6 +2,7 @@ package config
 
 import (
 	"fmt"
+	"github.com/rs/zerolog/log"
 	"os"
 	"strconv"
 	"strings"
@@ -19,24 +20,27 @@ type Config struct {
 }
 
 func (c *Config) String() {
-	fmt.Printf("Port: %d\n", c.Port)
-	fmt.Printf("Secret: %s\n", c.Secret)
-	fmt.Printf("Env: %s\n", c.Env)
-	fmt.Printf("BaseURL: %s\n", c.BaseURL)
-	fmt.Printf("UploadDirectory: %s\n", c.UploadDirectory)
-	fmt.Printf("MaxUploadSize: %d\n", c.MaxUploadSize)
-	fmt.Printf("UploadExpiresIn: %d\n", c.UploadExpiresIn)
+	log.Info().
+		Int("port", c.Port).
+		Str("env", c.Env).
+		Str("base_url", c.BaseURL).
+		Str("upload_dir", c.UploadDirectory).
+		Int64("max_upload_size", c.MaxUploadSize).
+		Int("upload_expires_in", c.UploadExpiresIn).
+		Msg("server configuration")
 }
 
 // NewConfig creates a server configuration from environment variables
 func NewConfig() (*Config, error) {
 	port, err := strconv.Atoi(os.Getenv("PORT"))
 	if err != nil || port <= 0 {
+		log.Error().Err(err).Msg("invalid PORT environment variable")
 		return nil, fmt.Errorf("invalid PORT: %w", err)
 	}
 
 	secret := os.Getenv("SECRET")
 	if secret == "" {
+		log.Error().Msg("SECRET environment variable is required")
 		return nil, fmt.Errorf("SECRET is required")
 	}
 
@@ -61,6 +65,7 @@ func NewConfig() (*Config, error) {
 	}
 	maxUploadSize, err := parseMaxUploadSize(maxUploadSizeStr)
 	if err != nil {
+		log.Error().Err(err).Msg("invalid MAX_UPLOAD_SIZE configuration")
 		return nil, err
 	}
 
@@ -70,6 +75,7 @@ func NewConfig() (*Config, error) {
 	}
 	uploadExpiresIn, err := strconv.Atoi(uploadExpiresInStr)
 	if err != nil {
+		log.Error().Err(err).Msg("invalid UPLOAD_EXPIRES_IN environment variable")
 		return nil, fmt.Errorf("invalid UPLOAD_EXPIRES_IN: %w", err)
 	}
 

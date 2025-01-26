@@ -41,6 +41,7 @@ A modern, secure file sharing and URL shortening platform built with Go.
 - 👥 User account system
 - 📱 Mobile-responsive UI
 - 🚀 HTMX-powered interactions
+- 📊 Structured logging with environment-aware log levels
 
 ## 💻 Installation
 
@@ -154,6 +155,49 @@ server {
     }
 
 }
+```
+
+## 📋 Logging
+
+Volaticus implements a sophisticated logging system using zerolog for structured, leveled logging that adapts to your environment.
+
+### Features
+
+- 🎨 Beautiful console output with visual hierarchy
+    - Color-coded HTTP methods and status codes
+    - Clear request/response correlation via request IDs
+    - Human readable timestamps and file sizes
+
+- 🔬 Environment-aware logging
+    - Development: Detailed debug information for local development
+    - Production: Clean, performance-optimized info logging
+    - Automatic static asset filtering to reduce noise
+
+- 🔒 Privacy-conscious logging
+    - IP address anonymization
+    - User agent summarization
+    - No sensitive data logging
+
+### Log Levels
+
+The system supports multiple log levels in order of verbosity:
+- **DEBUG**: Detailed information for development and troubleshooting
+- **INFO**: General operational entries about system behavior
+- **WARN**: Warning messages for potentially harmful situations
+- **ERROR**: Error events that might still allow the application to continue running
+
+Log levels are automatically set based on the environment but can be manually controlled via the `APP_ENV` variable.
+
+
+### Configuration
+
+Set the environment in `.env`:
+```env
+# Development: Detailed debug logs with all information
+APP_ENV=local/development
+
+# Production: Clean, filtered info logs
+APP_ENV=production
 ```
 
 ## 🔌 API Usage

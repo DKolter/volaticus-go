@@ -3,7 +3,7 @@ package shortener
 import (
 	"context"
 	"fmt"
-	"log"
+	"github.com/rs/zerolog/log"
 	"os"
 	"testing"
 	"time"
@@ -31,7 +31,9 @@ func TestMain(m *testing.M) {
 	// Start the container before running tests
 	teardown, err := mustStartPostgresContainer()
 	if err != nil {
-		log.Fatalf("could not start postgres container: %v", err)
+		log.Fatal().
+			Err(err).
+			Msg("could not start postgres container")
 	}
 
 	// Run the tests
@@ -40,7 +42,9 @@ func TestMain(m *testing.M) {
 	// Cleanup after tests finish
 	if teardown != nil {
 		if err := teardown(context.Background()); err != nil {
-			log.Printf("could not teardown postgres container: %v", err)
+			log.Warn().
+				Err(err).
+				Msg("could not teardown postgres container")
 		}
 	}
 
@@ -87,7 +91,10 @@ func mustStartPostgresContainer() (func(context.Context) error, error) {
 	}
 	testPort = port.Port()
 
-	log.Printf("Started postgres container on %s:%s", testHost, testPort)
+	log.Info().
+		Str("host", testHost).
+		Str("port", testPort).
+		Msg("Started postgres container")
 	return container.Terminate, nil
 }
 

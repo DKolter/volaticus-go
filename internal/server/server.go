@@ -4,7 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"log"
+	"github.com/rs/zerolog/log"
 	"net/http"
 	"time"
 	"volaticus-go/internal/config"
@@ -87,7 +87,10 @@ func (s *Server) Start() (*http.Server, error) {
 	}
 
 	// Log server startup
-	log.Printf("Starting server on port %d in %s mode", s.config.Port, s.config.Env)
+	log.Info().
+		Int("port", s.config.Port).
+		Str("env", s.config.Env).
+		Msg("starting server")
 
 	return srv, nil
 }
@@ -104,6 +107,9 @@ func (s *Server) sendJSON(w http.ResponseWriter, status int, success bool, messa
 	}
 
 	if err := json.NewEncoder(w).Encode(response); err != nil {
-		log.Printf("Error encoding JSON response: %v", err)
+		log.Error().
+			Err(err).
+			Interface("response", response).
+			Msg("failed to encode JSON response")
 	}
 }

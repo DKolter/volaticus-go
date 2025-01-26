@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"io"
-	"log"
 	"mime/multipart"
 	"net/http"
 	"os"
@@ -15,6 +14,7 @@ import (
 	"volaticus-go/internal/config"
 
 	"github.com/google/uuid"
+	"github.com/rs/zerolog/log"
 )
 
 type Service interface {
@@ -37,7 +37,10 @@ type service struct {
 func NewService(repo Repository, config *config.Config) *service {
 	// Make sure that directory exists
 	if err := os.MkdirAll(config.UploadDirectory, 0755); err != nil {
-		log.Fatalf("Failed to create upload directory: %v", err)
+		log.Fatal().
+			Err(err).
+			Str("path", config.UploadDirectory).
+			Msg("failed to create upload directory")
 	}
 
 	return &service{
@@ -80,12 +83,20 @@ func (s *service) VerifyFile(ctx context.Context, file multipart.File, header *m
 	// Read first 512 bytes for content type detection
 	buff := make([]byte, 512)
 	if _, err := file.Read(buff); err != nil {
+		log.Error().
+			Err(err).
+			Str("filename", header.Filename).
+			Msg("error reading file for content type detection")
 		result.Error = "Error reading file"
 		return result
 	}
 
 	// Reset file pointer
 	if _, err := file.Seek(0, 0); err != nil {
+		log.Error().
+			Err(err).
+			Str("filename", header.Filename).
+			Msg("error resetting file pointer")
 		result.Error = "Error processing file"
 		return result
 	}
@@ -146,10 +157,16 @@ func (s *service) UploadFile(ctx context.Context, req *UploadRequest) (*models.C
 	// Save to database
 	if err := s.repo.CreateWithURL(ctx, uploadedFile, urlValue); err != nil {
 		// Rollback file creation
-		log.Printf("Error saving to database, rolling back file creation: %v", err)
-		err := os.Remove(filepath.Join(s.config.UploadDirectory, uniqueFilename))
-		if err != nil {
-			return nil, err
+		log.Error().
+			Err(err).
+			Str("filename", uniqueFilename).
+			Msg("error saving to database, rolling back file creation")
+
+		if err := os.Remove(filepath.Join(s.config.UploadDirectory, uniqueFilename)); err != nil {
+			log.Error().
+				Err(err).
+				Str("filename", uniqueFilename).
+				Msg("error removing file during rollback")
 		}
 		return nil, fmt.Errorf("saving to database: %w", err)
 	}
@@ -171,7 +188,10 @@ func (s *service) GetFile(ctx context.Context, fileurl string) (*models.Uploaded
 
 	if err := s.repo.IncrementAccessCount(ctx, file.ID); err != nil {
 		// Log but don't fail the request if increment fails
-		log.Printf("Error incrementing access count: %v", err)
+		log.Warn().
+			Err(err).
+			Str("file_id", file.ID.String()).
+			Msg("error incrementing access count")
 	}
 
 	return file, nil
@@ -184,9 +204,11 @@ func (s *service) saveFile(file multipart.File, filename string) error {
 		return fmt.Errorf("creating file: %w", err)
 	}
 	defer func(dst *os.File) {
-		err := dst.Close()
-		if err != nil {
-			log.Printf("Error closing file: %v", err)
+		if err := dst.Close(); err != nil {
+			log.Error().
+				Err(err).
+				Str("path", dst.Name()).
+				Msg("error closing file")
 		}
 	}(dst)
 
@@ -200,10 +222,14 @@ func (s *service) saveFile(file multipart.File, filename string) error {
 func StartExpiredFilesWorker(ctx context.Context, svc *service, interval time.Duration) {
 	// Initial cleanup
 	if err := svc.CleanupExpiredFiles(ctx); err != nil {
-		log.Printf("Error cleaning up expired files: %v", err)
+		log.Error().
+			Err(err).
+			Msg("error cleaning up expired files")
 	}
 	if err := svc.CleanupOrphanedFiles(ctx); err != nil {
-		log.Printf("Error cleaning up orphaned files: %v", err)
+		log.Error().
+			Err(err).
+			Msg("error cleaning up orphaned files")
 	}
 
 	ticker := time.NewTicker(interval)
@@ -211,7 +237,9 @@ func StartExpiredFilesWorker(ctx context.Context, svc *service, interval time.Du
 	go func() {
 		for range ticker.C {
 			if err := svc.CleanupExpiredFiles(ctx); err != nil {
-				log.Printf("Error cleaning up expired files: %v", err)
+				log.Error().
+					Err(err).
+					Msg("error cleaning up expired files")
 			}
 		}
 	}()
@@ -248,7 +276,10 @@ func (s *service) DeleteFileByID(ctx context.Context, fileID, userID uuid.UUID) 
 	path := filepath.Join(s.config.UploadDirectory, file.UniqueFilename)
 	if err := os.Remove(path); err != nil && !os.IsNotExist(err) {
 		// Log but don't fail if physical file is already gone
-		log.Printf("Error deleting physical file %s: %v", path, err)
+		log.Warn().
+			Err(err).
+			Str("path", path).
+			Msg("error deleting physical file")
 	}
 
 	return nil
@@ -261,16 +292,24 @@ func (s *service) CleanupExpiredFiles(ctx context.Context) error {
 		return err
 	}
 	if len(files) > 0 {
-		log.Printf("Found %d expired files\n", len(files))
+		log.Info().
+			Int("count", len(files)).
+			Msg("found expired files")
 	}
 
 	for _, file := range files {
 		if err := s.repo.Delete(ctx, file.ID); err != nil {
-			log.Printf("Error deleting file %s from database: %v\n", file.ID, err)
+			log.Error().
+				Err(err).
+				Str("file_id", file.ID.String()).
+				Msg("error deleting file from database")
 			continue
 		}
 		if err := s.DeleteFile(file.UniqueFilename); err != nil {
-			log.Printf("Error deleting file %s from disk: %v\n", file.UniqueFilename, err)
+			log.Error().
+				Err(err).
+				Str("filename", file.UniqueFilename).
+				Msg("error deleting file from disk")
 		}
 	}
 	return nil
@@ -297,14 +336,19 @@ func (s *service) CleanupOrphanedFiles(ctx context.Context) error {
 	for _, file := range filesInDir {
 		if !fileMap[file.Name()] {
 			if err := s.DeleteFile(file.Name()); err != nil {
-				log.Printf("Error deleting orphaned file %s: %v", file.Name(), err)
+				log.Error().
+					Err(err).
+					Str("filename", file.Name()).
+					Msg("error deleting orphaned file")
 			} else {
 				deletedCount++
 			}
 		}
 	}
 	if deletedCount > 0 {
-		log.Printf("Deleted %d orphaned files", deletedCount)
+		log.Info().
+			Int("count", deletedCount).
+			Msg("deleted orphaned files")
 	}
 
 	var missingFiles []string
@@ -314,10 +358,16 @@ func (s *service) CleanupOrphanedFiles(ctx context.Context) error {
 		}
 	}
 	if len(missingFiles) > 0 {
-		log.Printf("Files in database but missing in directory: %v", missingFiles)
+		log.Info().
+			Strs("files", missingFiles).
+			Msg("files in database but missing in directory")
+
 		for _, file := range missingFiles {
 			if err := s.repo.DeleteByUniqueName(ctx, file); err != nil {
-				log.Printf("Error deleting database entry for missing file %s: %v", file, err)
+				log.Error().
+					Err(err).
+					Str("filename", file).
+					Msg("error deleting database entry for missing file")
 			}
 		}
 	}
