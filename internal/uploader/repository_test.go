@@ -3,7 +3,8 @@ package uploader
 import (
 	"context"
 	"fmt"
-	"log"
+	"github.com/rs/zerolog/log"
+
 	"testing"
 	"time"
 	"volaticus-go/internal/common/models"
@@ -72,13 +73,17 @@ func mustStartPostgresContainer() (func(context.Context) error, error) {
 func TestMain(m *testing.M) {
 	teardown, err := mustStartPostgresContainer()
 	if err != nil {
-		log.Fatalf("could not start postgres container: %v", err)
+		log.Fatal().
+			Err(err).
+			Msg("could not start postgres container")
 	}
 
 	m.Run()
 
 	if teardown != nil && teardown(context.Background()) != nil {
-		log.Fatalf("could not teardown postgres container: %v", err)
+		log.Fatal().
+			Err(err).
+			Msg("could not teardown postgres container")
 	}
 }
 

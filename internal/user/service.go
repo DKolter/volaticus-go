@@ -3,6 +3,7 @@ package user
 import (
 	"context"
 	"github.com/google/uuid"
+	"github.com/rs/zerolog/log"
 	"golang.org/x/crypto/bcrypt"
 	"volaticus-go/internal/common/models"
 )
@@ -27,6 +28,9 @@ func NewService(repo Repository) Service {
 func (s *service) Register(ctx context.Context, req *CreateUserRequest) (*models.User, error) {
 	hash, err := bcrypt.GenerateFromPassword([]byte(req.Password), bcrypt.DefaultCost)
 	if err != nil {
+		log.Error().
+			Err(err).
+			Msg("Failed to hash password")
 		return nil, err
 	}
 
@@ -39,9 +43,17 @@ func (s *service) Register(ctx context.Context, req *CreateUserRequest) (*models
 	}
 
 	if err := s.repo.Create(ctx, user); err != nil {
+		log.Error().
+			Err(err).
+			Str("username", user.Username).
+			Msg("Failed to create user")
 		return nil, err
 	}
 
+	log.Info().
+		Str("user_id", user.ID.String()).
+		Str("username", user.Username).
+		Msg("New user registered")
 	return user, nil
 }
 
@@ -64,12 +76,30 @@ func (s *service) ValidateCredentials(ctx context.Context, username, password st
 	}
 
 	if err := bcrypt.CompareHashAndPassword([]byte(user.PasswordHash), []byte(password)); err != nil {
+		log.Info().
+			Str("username", username).
+			Msg("Failed login attempt")
 		return nil, ErrInvalidCredentials
 	}
 
+	log.Info().
+		Str("user_id", user.ID.String()).
+		Str("username", user.Username).
+		Msg("User logged in successfully")
 	return user, nil
 }
 
 func (s *service) Delete(ctx context.Context, id uuid.UUID) error {
-	return s.repo.Delete(ctx, id)
+	if err := s.repo.Delete(ctx, id); err != nil {
+		log.Error().
+			Err(err).
+			Str("user_id", id.String()).
+			Msg("Failed to delete user")
+		return err
+	}
+
+	log.Info().
+		Str("user_id", id.String()).
+		Msg("User deleted")
+	return nil
 }

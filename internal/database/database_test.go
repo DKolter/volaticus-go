@@ -2,10 +2,10 @@ package database
 
 import (
 	"context"
-	"log"
 	"testing"
 	"time"
 
+	"github.com/rs/zerolog/log"
 	"github.com/testcontainers/testcontainers-go"
 	"github.com/testcontainers/testcontainers-go/modules/postgres"
 	"github.com/testcontainers/testcontainers-go/wait"
@@ -38,6 +38,9 @@ func mustStartPostgresContainer() (func(context.Context) error, error) {
 				WithStartupTimeout(5*time.Second)),
 	)
 	if err != nil {
+		log.Error().
+			Err(err).
+			Msg("failed to start postgres container")
 		return nil, err
 	}
 
@@ -47,16 +50,27 @@ func mustStartPostgresContainer() (func(context.Context) error, error) {
 
 	dbHost, err := dbContainer.Host(context.Background())
 	if err != nil {
+		log.Error().
+			Err(err).
+			Msg("failed to get container host")
 		return dbContainer.Terminate, err
 	}
 
 	dbPort, err := dbContainer.MappedPort(context.Background(), "5432/tcp")
 	if err != nil {
+		log.Error().
+			Err(err).
+			Msg("failed to get container port")
 		return dbContainer.Terminate, err
 	}
 
 	host = dbHost
 	port = dbPort.Port()
+
+	log.Info().
+		Str("host", dbHost).
+		Str("port", dbPort.Port()).
+		Msg("postgres container started successfully")
 
 	return dbContainer.Terminate, err
 }
@@ -64,16 +78,23 @@ func mustStartPostgresContainer() (func(context.Context) error, error) {
 func TestMain(m *testing.M) {
 	teardown, err := mustStartPostgresContainer()
 	if err != nil {
-		log.Fatalf("could not start postgres container: %v", err)
+		log.Fatal().
+			Err(err).
+			Msg("could not start postgres container")
 	}
 
 	m.Run()
 
-	if teardown != nil && teardown(context.Background()) != nil {
-		log.Fatalf("could not teardown postgres container: %v", err)
+	if teardown != nil {
+		if err := teardown(context.Background()); err != nil {
+			log.Fatal().
+				Err(err).
+				Msg("could not teardown postgres container")
+		}
 	}
 }
 
+// TestNew bleibt unverändert, da es Testing-Framework Logging nutzt
 func TestNew(t *testing.T) {
 	cfg := Config{
 		Host:     host,
@@ -92,6 +113,7 @@ func TestNew(t *testing.T) {
 	}
 }
 
+// TestHealth bleibt unverändert, da es Testing-Framework Logging nutzt
 func TestHealth(t *testing.T) {
 	cfg := Config{
 		Host:     host,
@@ -117,6 +139,7 @@ func TestHealth(t *testing.T) {
 	}
 }
 
+// TestClose bleibt unverändert, da es Testing-Framework Logging nutzt
 func TestClose(t *testing.T) {
 	cfg := Config{
 		Host:     host,

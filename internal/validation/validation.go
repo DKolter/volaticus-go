@@ -3,6 +3,7 @@ package validation
 import (
 	"fmt"
 	"github.com/go-playground/validator/v10"
+	"github.com/rs/zerolog/log"
 	"net/url"
 	"strings"
 	"unicode"
@@ -15,16 +16,24 @@ func init() {
 
 	// Register custom validation functions
 	if err := validate.RegisterValidation("username", validateUsername); err != nil {
-		panic(fmt.Sprintf("failed to register username validation: %v", err))
+		log.Fatal().
+			Err(err).
+			Msg("Failed to register username validation")
 	}
 	if err := validate.RegisterValidation("password", validatePassword); err != nil {
-		panic(fmt.Sprintf("failed to register password validation: %v", err))
+		log.Fatal().
+			Err(err).
+			Msg("Failed to register password validation")
 	}
 	if err := validate.RegisterValidation("url", validateURL); err != nil {
-		panic(fmt.Sprintf("failed to register url validation: %v", err))
+		log.Fatal().
+			Err(err).
+			Msg("Failed to register url validation")
 	}
 	if err := validate.RegisterValidation("vanitycode", validateVanityCode); err != nil {
-		panic(fmt.Sprintf("failed to register vanitycode validation: %v", err))
+		log.Fatal().
+			Err(err).
+			Msg("Failed to register vanitycode validation")
 	}
 }
 

@@ -1,7 +1,7 @@
 package server
 
 import (
-	"log"
+	"github.com/rs/zerolog/log"
 	"net/http"
 	"volaticus-go/cmd/web"
 
@@ -121,7 +121,9 @@ func (s *Server) RegisterRoutes() http.Handler {
 
 		// Upload endpoint
 		r.Post("/api/v1/upload", func(w http.ResponseWriter, r *http.Request) {
-			log.Printf("Upload request received")
+			log.Info().
+				Str("path", r.URL.Path).
+				Msg("api upload request received")
 			s.fileHandler.HandleAPIUpload(w, r)
 		})
 	})

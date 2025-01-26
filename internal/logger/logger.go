@@ -78,7 +78,7 @@ func Init(env string) {
 			}
 		},
 		FormatMessage: func(i interface{}) string {
-			msg := fmt.Sprintf("%s\t", i)
+			msg := fmt.Sprintf("%-35s", i)
 
 			if strings.Contains(msg, "Request completed") {
 				return fmt.Sprintf("%s%s%s", scheme.Gray, msg, scheme.Reset)

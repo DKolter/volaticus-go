@@ -2,7 +2,7 @@ package shortener
 
 import (
 	"encoding/json"
-	"log"
+	"github.com/rs/zerolog/log"
 	"net/http"
 )
 
@@ -57,13 +57,19 @@ func HandleError(w http.ResponseWriter, err *APIError, status int) {
 	w.WriteHeader(status)
 
 	if err := json.NewEncoder(w).Encode(err); err != nil {
-		log.Printf("Error encoding error response: %v", err)
+		log.Error().
+			Err(err).
+			Interface("api_error", err).
+			Msg("failed to encode error response")
 	}
 }
 
 // LogError logs an error and returns an appropriate API error
 func LogError(err error, context string) *APIError {
-	log.Printf("Error in %s: %v", context, err)
+	log.Error().
+		Err(err).
+		Str("context", context).
+		Msg("internal error occurred")
 	return &APIError{
 		Code:    ErrCodeInternalError,
 		Message: "An internal error occurred",

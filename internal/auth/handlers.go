@@ -2,13 +2,13 @@ package auth
 
 import (
 	"encoding/json"
-	"log"
 	"net/http"
 	"volaticus-go/internal/context"
 	"volaticus-go/internal/user"
 	"volaticus-go/internal/validation"
 
 	"github.com/google/uuid"
+	"github.com/rs/zerolog/log"
 
 	"github.com/go-chi/chi/v5"
 )
@@ -51,14 +51,18 @@ func (h *Handler) GenerateToken(w http.ResponseWriter, r *http.Request) {
 
 	if err := validation.Validate(&req); err != nil {
 		errors := validation.FormatError(err)
-		log.Printf("Validation errors: %v", errors)
+		log.Error().
+			Interface("errors", errors).
+			Msg("Validation errors")
 		http.Error(w, errors[0].Error, http.StatusBadRequest)
 		return
 	}
 
 	token, err := h.authService.GenerateAPIToken(r.Context(), user.ID, req.Name)
 	if err != nil {
-		log.Printf("Error generating API token: %v", err)
+		log.Error().
+			Err(err).
+			Msg("Error generating API token")
 		http.Error(w, "Server error", http.StatusInternalServerError)
 		return
 	}
@@ -67,7 +71,9 @@ func (h *Handler) GenerateToken(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("HX-Refresh", "true")
 	w.WriteHeader(http.StatusOK)
 	if err := json.NewEncoder(w).Encode(TokenResponse{Token: token.Token, Name: token.Name, ID: token.ID}); err != nil {
-		log.Printf("Error encoding response: %v", err)
+		log.Error().
+			Err(err).
+			Msg("Error encoding response")
 		http.Error(w, "Server error", http.StatusInternalServerError)
 	}
 }
@@ -90,7 +96,11 @@ func (h *Handler) DeleteToken(w http.ResponseWriter, r *http.Request) {
 	// Delete token, ensuring it belongs to current user
 	err := h.authService.DeleteTokenByUserIdAndToken(r.Context(), user.ID, token)
 	if err != nil {
-		log.Printf("failed to delete token: %v", err)
+		log.Error().
+			Err(err).
+			Str("token", token).
+			Str("user_id", user.ID.String()).
+			Msg("Failed to delete token")
 		http.Error(w, "failed to delete token", http.StatusInternalServerError)
 		return
 	}

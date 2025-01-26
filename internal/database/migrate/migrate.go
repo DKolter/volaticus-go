@@ -4,7 +4,7 @@ import (
 	"embed"
 	"errors"
 	"fmt"
-	"log"
+	"github.com/rs/zerolog/log"
 
 	"github.com/golang-migrate/migrate/v4"
 	"github.com/golang-migrate/migrate/v4/database/postgres"
@@ -41,7 +41,7 @@ func RunMigrations(db *sqlx.DB) error {
 	}
 
 	if errors.Is(err, migrate.ErrNoChange) {
-		log.Println("No migrations to run")
+		log.Info().Msg("no migrations to run")
 		return nil
 	}
 
@@ -50,7 +50,10 @@ func RunMigrations(db *sqlx.DB) error {
 		return fmt.Errorf("could not get migration version: %w", err)
 	}
 
-	log.Printf("Migrations completed. Version: %d, Dirty: %v\n", version, dirty)
+	log.Info().
+		Uint("version", version).
+		Bool("dirty", dirty).
+		Msg("migrations completed successfully")
 	return nil
 }
 
@@ -80,10 +83,10 @@ func RollbackMigrations(db *sqlx.DB) error {
 	}
 
 	if errors.Is(err, migrate.ErrNoChange) {
-		log.Println("No migrations to rollback")
+		log.Info().Msg("no migrations to rollback")
 		return nil
 	}
 
-	log.Println("Migration rollback completed")
+	log.Info().Msg("migration rollback completed successfully")
 	return nil
 }

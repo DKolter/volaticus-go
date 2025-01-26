@@ -1,11 +1,11 @@
 package shortener
 
 import (
-	"log"
 	"net"
 	"sync"
 
 	"github.com/oschwald/geoip2-golang"
+	"github.com/rs/zerolog/log"
 )
 
 type GeoIPService struct {
@@ -25,12 +25,17 @@ func GetGeoIPService() *GeoIPService {
 
 		reader, err := geoip2.Open(dbPath)
 		if err != nil {
-			log.Printf("Warning: Could not load GeoIP database: %v", err)
+			log.Warn().
+				Err(err).
+				Str("path", dbPath).
+				Msg("Could not load GeoIP database")
 			geoIPInstance = &GeoIPService{}
 			return
 		}
 
-		log.Printf("Successfully loaded GeoIP database from: %s", dbPath)
+		log.Info().
+			Str("path", dbPath).
+			Msg("Successfully loaded GeoIP database")
 		geoIPInstance = &GeoIPService{
 			reader: reader,
 		}
@@ -56,12 +61,18 @@ func (g *GeoIPService) GetLocation(ipAddr string) *LocationInfo {
 
 	ip := net.ParseIP(ipAddr)
 	if ip == nil {
+		log.Warn().
+			Str("ip", ipAddr).
+			Msg("Invalid IP address format")
 		return &LocationInfo{CountryCode: "XX"}
 	}
 
 	record, err := g.reader.City(ip)
 	if err != nil {
-		log.Printf("Error looking up IP %s: %v", ipAddr, err)
+		log.Error().
+			Err(err).
+			Str("ip", ipAddr).
+			Msg("Error looking up IP location")
 		return &LocationInfo{CountryCode: "XX"}
 	}
 
@@ -91,9 +102,10 @@ func (g *GeoIPService) GetLocation(ipAddr string) *LocationInfo {
 // Close releases the GeoIP database resources
 func (g *GeoIPService) Close() {
 	if g.reader != nil {
-		err := g.reader.Close()
-		if err != nil {
-			return
+		if err := g.reader.Close(); err != nil {
+			log.Error().
+				Err(err).
+				Msg("Failed to close GeoIP database")
 		}
 	}
 }

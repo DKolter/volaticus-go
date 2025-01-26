@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"log"
 	"mime/multipart"
 	"net/http"
 	"path/filepath"
@@ -16,6 +15,7 @@ import (
 
 	"github.com/go-chi/chi/v5"
 	"github.com/google/uuid"
+	"github.com/rs/zerolog/log"
 )
 
 const (
@@ -39,14 +39,18 @@ func (h *Handler) HandleVerifyFile(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		err := components.ValidationError("Invalid file").Render(r.Context(), w)
 		if err != nil {
-			log.Printf("Error rendering validation error: %v", err)
+			log.Error().
+				Err(err).
+				Msg("Error rendering validation error")
 		}
 		return
 	}
 	defer func(file multipart.File) {
 		err := file.Close()
 		if err != nil {
-			log.Printf("Error closing file: %v", err)
+			log.Error().
+				Err(err).
+				Msg("Error closing file")
 		}
 	}(file)
 
@@ -56,7 +60,9 @@ func (h *Handler) HandleVerifyFile(w http.ResponseWriter, r *http.Request) {
 	if !result.IsValid {
 		err := components.ValidationError(result.Error).Render(r.Context(), w)
 		if err != nil {
-			log.Printf("Error rendering validation: %v", err)
+			log.Error().
+				Err(err).
+				Msg("Error rendering validation")
 		}
 		return
 	}
@@ -64,7 +70,12 @@ func (h *Handler) HandleVerifyFile(w http.ResponseWriter, r *http.Request) {
 	// Render success component
 	err = components.ValidationSuccess(result.FileName, result.FileSize, result.ContentType).Render(r.Context(), w)
 	if err != nil {
-		log.Printf("Error rendering validation success: %v", err)
+		log.Error().
+			Err(err).
+			Str("filename", result.FileName).
+			Int64("size", result.FileSize).
+			Str("contentType", result.ContentType).
+			Msg("Error rendering validation success")
 	}
 }
 
@@ -78,7 +89,9 @@ func (h *Handler) HandleUpload(w http.ResponseWriter, r *http.Request) {
 	defer func(file multipart.File) {
 		err := file.Close()
 		if err != nil {
-			log.Printf("Error closing file: %v", err)
+			log.Error().
+				Err(err).
+				Msg("Error closing file")
 		}
 	}(file)
 
@@ -111,14 +124,23 @@ func (h *Handler) HandleUpload(w http.ResponseWriter, r *http.Request) {
 
 	response, err := h.service.UploadFile(r.Context(), uploadReq)
 	if err != nil {
-		log.Printf("Error uploading file: %v", err)
+		log.Error().
+			Err(err).
+			Str("userId", userContext.ID.String()).
+			Str("filename", header.Filename).
+			Str("urlType", urlType).
+			Msg("Error uploading file")
 		http.Error(w, "Error uploading file", http.StatusInternalServerError)
 		return
 	}
 
 	// Render success template
 	if err := pages.UploadSuccess(response.FileUrl, response.OriginalName).Render(r.Context(), w); err != nil {
-		log.Printf("Error rendering success template: %v", err)
+		log.Error().
+			Err(err).
+			Str("fileUrl", response.FileUrl).
+			Str("originalName", response.OriginalName).
+			Msg("Error rendering success template")
 		http.Error(w, "Error rendering response", http.StatusInternalServerError)
 		return
 	}
@@ -127,7 +149,10 @@ func (h *Handler) HandleUpload(w http.ResponseWriter, r *http.Request) {
 // HandleServeFile serves the uploaded file
 func (h *Handler) HandleServeFile(w http.ResponseWriter, r *http.Request) {
 	urlvalue := chi.URLParam(r, "fileUrl")
-	log.Printf("Got Serve File Request: %s", urlvalue)
+	log.Info().
+		Str("fileUrl", urlvalue).
+		Msg("Got Serve File Request")
+
 	if urlvalue == "" {
 		http.Error(w, "File not found", http.StatusNotFound)
 		return
@@ -138,7 +163,11 @@ func (h *Handler) HandleServeFile(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "File not found", http.StatusNotFound)
 		return
 	}
-	log.Printf("Serving file: %s", file.OriginalName)
+
+	log.Info().
+		Str("filename", file.OriginalName).
+		Str("mimeType", file.MimeType).
+		Msg("Serving file")
 
 	contentType := file.MimeType
 	if contentType == "" {
@@ -153,7 +182,9 @@ func (h *Handler) HandleServeFile(w http.ResponseWriter, r *http.Request) {
 	}
 
 	path := filepath.Join(h.service.config.UploadDirectory, file.UniqueFilename)
-	log.Printf("Serving file from path: %s", path)
+	log.Info().
+		Str("path", path).
+		Msg("Serving file from path")
 	http.ServeFile(w, r, path)
 
 }
@@ -179,16 +210,22 @@ func sendAPIResponse(w http.ResponseWriter, status int, success bool, url string
 	}
 
 	if err := json.NewEncoder(w).Encode(response); err != nil {
-		log.Printf("Error encoding response: %v", err)
+		log.Error().
+			Err(err).
+			Msg("Error encoding response")
 	}
 }
 
 // HandleAPIUpload handles file upload through the API with minimal configuration
 func (h *Handler) HandleAPIUpload(w http.ResponseWriter, r *http.Request) {
-	log.Printf("API Upload request from %s", r.RemoteAddr)
+	log.Info().
+		Str("remoteAddr", r.RemoteAddr).
+		Msg("API Upload request from")
 	// Get user from context
 	userContext := userctx.GetUserFromContext(r.Context())
-	log.Printf("User context: %v", userContext)
+	log.Info().
+		Interface("userContext", userContext).
+		Msg("User context")
 	if userContext == nil {
 		sendAPIResponse(w, http.StatusUnauthorized, false, "", errors.New("unauthorized"))
 		return
@@ -213,7 +250,9 @@ func (h *Handler) HandleAPIUpload(w http.ResponseWriter, r *http.Request) {
 	defer func(file multipart.File) {
 		err := file.Close()
 		if err != nil {
-			log.Printf("Error closing file: %v", err)
+			log.Error().
+				Err(err).
+				Msg("Error closing file")
 		}
 	}(file)
 
@@ -246,7 +285,9 @@ func (h *Handler) HandleAPIUpload(w http.ResponseWriter, r *http.Request) {
 	response, err := h.service.UploadFile(r.Context(), uploadReq)
 	if err != nil {
 		// Log the internal error but don't send it to the client
-		log.Printf("Upload error: %v", err)
+		log.Error().
+			Err(err).
+			Msg("Upload error")
 		sendAPIResponse(w, http.StatusInternalServerError, false, "", errors.New("upload failed"))
 		return
 	}
@@ -284,7 +325,9 @@ func (h *Handler) HandleFilesList(w http.ResponseWriter, r *http.Request) {
 	// Get files and stats for the current user with pagination
 	files, err := h.service.GetUserFiles(r.Context(), user.ID, limit, offset)
 	if err != nil {
-		log.Printf("Error fetching files: %v", err)
+		log.Error().
+			Err(err).
+			Msg("Error fetching files")
 		http.Error(w, "Error fetching files", http.StatusInternalServerError)
 		return
 	}
@@ -292,7 +335,9 @@ func (h *Handler) HandleFilesList(w http.ResponseWriter, r *http.Request) {
 	// Get total count for pagination
 	total, err := h.service.GetUserFilesCount(r.Context(), user.ID)
 	if err != nil {
-		log.Printf("Error fetching file count: %v", err)
+		log.Error().
+			Err(err).
+			Msg("Error fetching file count")
 		http.Error(w, "Error fetching file count", http.StatusInternalServerError)
 		return
 	}
@@ -310,7 +355,9 @@ func (h *Handler) HandleFilesList(w http.ResponseWriter, r *http.Request) {
 
 	err = components.FileListComponent(props).Render(r.Context(), w)
 	if err != nil {
-		log.Printf("Error rendering file list: %v", err)
+		log.Error().
+			Err(err).
+			Msg("Error rendering file list")
 		http.Error(w, "Error rendering file list", http.StatusInternalServerError)
 		return
 	}
@@ -347,17 +394,20 @@ func (h *Handler) HandleRecentFiles(w http.ResponseWriter, r *http.Request, limi
 
 func (h *Handler) HandleDeleteFile(w http.ResponseWriter, r *http.Request) {
 	user := context.GetUserFromContext(r.Context())
-	log.Printf("INFO: User: %v is attempting to delete File: %v", user, chi.URLParam(r, "fileID"))
+	log.Info().
+		Interface("user", user).
+		Str("fileID", chi.URLParam(r, "fileID")).
+		Msg("User is attempting to delete File")
 	if user == nil {
 		http.Error(w, "Unauthorized", http.StatusUnauthorized)
-		log.Printf("Unauthorized")
+		log.Info().Msg("Unauthorized")
 		return
 	}
 
 	fileID := chi.URLParam(r, "fileID")
 	if fileID == "" {
 		http.Error(w, "Missing file ID", http.StatusBadRequest)
-		log.Printf("Missing file ID")
+		log.Info().Msg("Missing file ID")
 		return
 	}
 
@@ -365,7 +415,9 @@ func (h *Handler) HandleDeleteFile(w http.ResponseWriter, r *http.Request) {
 	id, err := uuid.Parse(fileID)
 	if err != nil {
 		http.Error(w, "Invalid file ID", http.StatusBadRequest)
-		log.Printf("Invalid file ID: %v", err)
+		log.Error().
+			Err(err).
+			Msg("Invalid file ID")
 		return
 	}
 
@@ -375,12 +427,14 @@ func (h *Handler) HandleDeleteFile(w http.ResponseWriter, r *http.Request) {
 		switch {
 		case errors.Is(err, ErrUnauthorized):
 			http.Error(w, "Unauthorized", http.StatusForbidden)
-			log.Printf("Unauthorized")
+			log.Info().Msg("Unauthorized")
 		case errors.Is(err, ErrNoRows):
 			http.Error(w, "File not found", http.StatusNotFound)
-			log.Printf("File not found")
+			log.Info().Msg("File not found")
 		default:
-			log.Printf("Error deleting file: %v", err)
+			log.Error().
+				Err(err).
+				Msg("Error deleting file")
 			http.Error(w, "Internal server error", http.StatusInternalServerError)
 		}
 		return

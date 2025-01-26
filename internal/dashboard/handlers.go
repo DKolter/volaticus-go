@@ -2,7 +2,7 @@ package dashboard
 
 import (
 	"encoding/json"
-	"log"
+	"github.com/rs/zerolog/log"
 	"net/http"
 	"volaticus-go/internal/context"
 )
@@ -20,20 +20,28 @@ func NewHandler(service Service) *Handler {
 func (h *Handler) HandleGetDashboardStats(w http.ResponseWriter, r *http.Request) {
 	user := context.GetUserFromContext(r.Context())
 	if user == nil {
+		log.Error().Msg("unauthorized access attempt to dashboard stats")
 		http.Error(w, ErrUnauthorized.Error(), http.StatusUnauthorized)
 		return
 	}
 
 	stats, err := h.service.GetDashboardStats(r.Context(), user.ID)
 	if err != nil {
-		log.Printf("Error fetching dashboard stats: %v", err)
+		log.Error().
+			Err(err).
+			Str("user_id", user.ID.String()).
+			Msg("failed to fetch dashboard stats")
 		http.Error(w, "Error fetching dashboard statistics", http.StatusInternalServerError)
 		return
 	}
 
 	w.Header().Set("Content-Type", "application/json")
 	if err := json.NewEncoder(w).Encode(stats); err != nil {
-		log.Printf("Error encoding dashboard stats: %v", err)
+		log.Error().
+			Err(err).
+			Str("user_id", user.ID.String()).
+			Interface("stats", stats).
+			Msg("failed to encode dashboard stats response")
 		http.Error(w, "Error encoding response", http.StatusInternalServerError)
 		return
 	}

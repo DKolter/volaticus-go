@@ -2,7 +2,6 @@ package shortener
 
 import (
 	"encoding/json"
-	"log"
 	"net/http"
 	"strings"
 	"time"
@@ -14,6 +13,7 @@ import (
 
 	"github.com/go-chi/chi/v5"
 	"github.com/google/uuid"
+	"github.com/rs/zerolog/log"
 )
 
 type Handler struct {
@@ -59,15 +59,20 @@ func (h *Handler) HandleCreateShortURL(w http.ResponseWriter, r *http.Request) {
 			HandleError(w, ErrVanityCodeTaken, http.StatusConflict)
 			return
 		}
-		log.Printf("Error creating short URL: %v", err)
+		log.Error().
+			Err(err).
+			Str("user_id", user.ID.String()).
+			Str("url", req.URL).
+			Msg("Failed to create short URL")
 		HandleError(w, LogError(err, "creating short URL"), http.StatusInternalServerError)
 		return
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	err = json.NewEncoder(w).Encode(response)
-	if err != nil {
-		return
+	if err := json.NewEncoder(w).Encode(response); err != nil {
+		log.Error().
+			Err(err).
+			Msg("Failed to encode JSON response")
 	}
 }
 
@@ -95,7 +100,11 @@ func (h *Handler) HandleRedirect(w http.ResponseWriter, r *http.Request) {
 			HandleError(w, ErrURLExpired, http.StatusGone)
 			return
 		}
-		log.Printf("Error retrieving original URL: %v", err)
+		log.Error().
+			Err(err).
+			Str("short_code", shortCode).
+			Str("ip", reqInfo.IPAddress).
+			Msg("Failed to retrieve original URL")
 		HandleError(w, ErrURLNotFound, http.StatusNotFound)
 		return
 	}
@@ -112,14 +121,20 @@ func (h *Handler) HandleGetUserURLs(w http.ResponseWriter, r *http.Request) {
 
 	urls, err := h.service.GetUserURLs(r.Context(), user.ID)
 	if err != nil {
-		log.Printf("Error retrieving user URLs: %v", err)
+		log.Error().
+			Err(err).
+			Str("user_id", user.ID.String()).
+			Msg("Failed to retrieve user URLs")
 		HandleError(w, LogError(err, "retrieving user URLs"), http.StatusInternalServerError)
 		return
 	}
 
 	// Render the template using the pages package
 	if err := pages.URLList(urls).Render(r.Context(), w); err != nil {
-		log.Printf("Error rendering URL list: %v", err)
+		log.Error().
+			Err(err).
+			Str("user_id", user.ID.String()).
+			Msg("Failed to render URL list")
 		HandleError(w, LogError(err, "rendering URL list"), http.StatusInternalServerError)
 	}
 }
@@ -147,7 +162,11 @@ func (h *Handler) HandleGetURLAnalytics(w http.ResponseWriter, r *http.Request) 
 			HandleError(w, ErrUnauthorized, http.StatusForbidden)
 			return
 		}
-		log.Printf("Error retrieving URL analytics: %v", err)
+		log.Error().
+			Err(err).
+			Str("url_id", urlID.String()).
+			Str("user_id", user.ID.String()).
+			Msg("Failed to retrieve URL analytics")
 		HandleError(w, LogError(err, "retrieving analytics"), http.StatusInternalServerError)
 		return
 	}
@@ -156,7 +175,10 @@ func (h *Handler) HandleGetURLAnalytics(w http.ResponseWriter, r *http.Request) 
 	if r.Header.Get("HX-Request") == "true" {
 		w.Header().Set("Content-Type", "text/html")
 		if err := components.AnalyticsModal(analytics).Render(r.Context(), w); err != nil {
-			log.Printf("Error rendering analytics modal: %v", err)
+			log.Error().
+				Err(err).
+				Str("url_id", urlID.String()).
+				Msg("Failed to render analytics modal")
 			HandleError(w, LogError(err, "rendering analytics modal"), http.StatusInternalServerError)
 		}
 		return
@@ -164,9 +186,10 @@ func (h *Handler) HandleGetURLAnalytics(w http.ResponseWriter, r *http.Request) 
 
 	// Otherwise return JSON
 	w.Header().Set("Content-Type", "application/json")
-	err = json.NewEncoder(w).Encode(analytics)
-	if err != nil {
-		return
+	if err := json.NewEncoder(w).Encode(analytics); err != nil {
+		log.Error().
+			Err(err).
+			Msg("Failed to encode JSON response")
 	}
 }
 
@@ -194,18 +217,27 @@ func (h *Handler) HandleDeleteURL(w http.ResponseWriter, r *http.Request) {
 				HandleError(w, ErrUnauthorized, http.StatusForbidden)
 				return
 			}
-			log.Printf("Error deleting short code: %v", err)
+			log.Error().
+				Err(err).
+				Str("short_code", urlID).
+				Str("user_id", user.ID.String()).
+				Msg("Failed to delete URL by short code")
 			HandleError(w, LogError(err, "deleting short code"), http.StatusInternalServerError)
 			return
 		}
 	} else {
 		// Handle UUIDs
-		if err := h.service.DeleteURL(r.Context(), uuid.MustParse(urlID), user.ID); err != nil {
+		parsedID := uuid.MustParse(urlID)
+		if err := h.service.DeleteURL(r.Context(), parsedID, user.ID); err != nil {
 			if strings.Contains(err.Error(), "unauthorized") {
 				HandleError(w, ErrUnauthorized, http.StatusForbidden)
 				return
 			}
-			log.Printf("Error deleting URL: %v", err)
+			log.Error().
+				Err(err).
+				Str("url_id", parsedID.String()).
+				Str("user_id", user.ID.String()).
+				Msg("Failed to delete URL")
 			HandleError(w, LogError(err, "deleting URL"), http.StatusInternalServerError)
 			return
 		}
@@ -259,7 +291,12 @@ func (h *Handler) HandleUpdateExpiration(w http.ResponseWriter, r *http.Request)
 			HandleError(w, ErrUnauthorized, http.StatusForbidden)
 			return
 		}
-		log.Printf("Error updating URL expiration: %v", err)
+		log.Error().
+			Err(err).
+			Str("url_id", urlID.String()).
+			Str("user_id", user.ID.String()).
+			Time("expires_at", *expiresAt).
+			Msg("Failed to update URL expiration")
 		HandleError(w, LogError(err, "updating expiration"), http.StatusInternalServerError)
 		return
 	}
@@ -304,7 +341,12 @@ func (h *Handler) HandleShortenForm(w http.ResponseWriter, r *http.Request) {
 
 	response, err := h.service.CreateShortURL(r.Context(), user.ID, &req)
 	if err != nil {
-		log.Printf("Error creating short URL: %v", err)
+		log.Error().
+			Err(err).
+			Str("user_id", user.ID.String()).
+			Str("url", req.URL).
+			Str("vanity_code", req.VanityCode).
+			Msg("Failed to create short URL via form")
 
 		// If HTMX request, return the shortened URL template
 		if r.Header.Get("HX-Request") == "true" {
@@ -317,9 +359,11 @@ func (h *Handler) HandleShortenForm(w http.ResponseWriter, r *http.Request) {
 				errorMessage = "This custom URL is already taken"
 			}
 
-			err := pages.ErrorResult(errorMessage).Render(r.Context(), w)
-			if err != nil {
-				return
+			if err := pages.ErrorResult(errorMessage).Render(r.Context(), w); err != nil {
+				log.Error().
+					Err(err).
+					Str("error_message", errorMessage).
+					Msg("Failed to render error result")
 			}
 			return
 		}
@@ -332,9 +376,10 @@ func (h *Handler) HandleShortenForm(w http.ResponseWriter, r *http.Request) {
 	if r.Header.Get("HX-Request") == "true" {
 		w.Header().Set("Content-Type", "text/html")
 		w.Header().Set("HX-Trigger", "urlsChanged")
-		err := pages.ShortenedURLResult(response).Render(r.Context(), w)
-		if err != nil {
-			return
+		if err := pages.ShortenedURLResult(response).Render(r.Context(), w); err != nil {
+			log.Error().
+				Err(err).
+				Msg("Failed to render shortened URL result")
 		}
 		return
 	}
@@ -342,9 +387,10 @@ func (h *Handler) HandleShortenForm(w http.ResponseWriter, r *http.Request) {
 	// If not HTMX, return JSON response
 	w.Header().Set("Content-Type", "application/json")
 	w.Header().Set("HX-Trigger", "urlsChanged")
-	err = json.NewEncoder(w).Encode(response)
-	if err != nil {
-		return
+	if err := json.NewEncoder(w).Encode(response); err != nil {
+		log.Error().
+			Err(err).
+			Msg("Failed to encode JSON response")
 	}
 }
 
