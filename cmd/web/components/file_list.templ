@@ -29,6 +29,7 @@ templ FileListComponent(props FileListProps) {
 							<th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase">Size</th>
 							<th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase">Views</th>
 							<th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase">Uploaded</th>
+							<th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase">Expires</th>
 							<th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase">Actions</th>
 						</tr>
 					</thead>
@@ -47,7 +48,13 @@ templ FileListComponent(props FileListProps) {
 								<td class="px-6 py-4 whitespace-nowrap text-sm text-gray-300">
 									<div class="flex flex-col">
 										<span>{ formatTime(file.CreatedAt) }</span>
-										<span class="text-xs text-gray-500">{ formatTimeAgo(file.CreatedAt) }</span>
+										<span class="text-xs text-gray-500">{ formatTimeString(file.CreatedAt) }</span>
+									</div>
+								</td>
+								<td class="px-6 py-4 whitespace-nowrap text-sm text-gray-300">
+									<div class="flex flex-col">
+										<span>{ formatTime(file.ExpiresAt) }</span>
+										<span class="text-xs text-gray-500">{ formatTimeString(file.ExpiresAt) }</span>
 									</div>
 								</td>
 								<td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
@@ -248,33 +255,46 @@ func formatTime(t time.Time) string {
 	return t.Format("2006-01-02 15:04")
 }
 
-func formatTimeAgo(t time.Time) string {
-	duration := time.Since(t)
+func formatTimeString(t time.Time) string {
+	duration := time.Until(t)
+	inPast := duration < 0
+	if inPast {
+		duration = -duration
+	}
+
+	var result string
 	if duration < time.Hour {
 		minutes := int(duration.Minutes())
 		if minutes < 1 {
 			return "just now"
 		}
 		if minutes == 1 {
-			return "1 minute ago"
+			result = "1 minute"
+		} else {
+			result = fmt.Sprintf("%d minutes", minutes)
 		}
-		return fmt.Sprintf("%d minutes ago", minutes)
-	}
-	if duration < time.Hour*24 {
+	} else if duration < time.Hour*24 {
 		hours := int(duration.Hours())
 		if hours == 1 {
-			return "1 hour ago"
+			result = "1 hour"
+		} else {
+			result = fmt.Sprintf("%d hours", hours)
 		}
-		return fmt.Sprintf("%d hours ago", hours)
-	}
-	if duration < time.Hour*24*7 {
+	} else if duration < time.Hour*24*7 {
 		days := int(duration.Hours() / 24)
 		if days == 1 {
-			return "1 day ago"
+			result = "1 day"
+		} else {
+			result = fmt.Sprintf("%d days", days)
 		}
-		return fmt.Sprintf("%d days ago", days)
+	} else {
+		return t.Format("Jan 2")
 	}
-	return t.Format("Jan 2")
+
+	if inPast {
+		return result + " ago"
+	}
+	return "in " + result
 }
 
 func formatSize(size int64) string {
