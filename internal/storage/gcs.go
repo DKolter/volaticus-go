@@ -186,6 +186,8 @@ func (g *GCSStorageProvider) GetURL(ctx context.Context, filename string) (strin
 		Str("filename", filename).
 		Msg("getting URL")
 
+	// This currently only works with files that are stored as unixtime.ext
+
 	// Ensure the file exists in the bucket
 	obj := g.bucket.Object(filename)
 	_, err := obj.Attrs(ctx)

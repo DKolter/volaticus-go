@@ -135,7 +135,7 @@ func (h *Handler) HandleUpload(w http.ResponseWriter, r *http.Request) {
 		UserID:  userContext.ID,
 	}
 
-	response, err := h.service.UploadFile(r.Context(), uploadReq)
+	uploadedFile, err := h.service.UploadFile(r.Context(), uploadReq)
 	if err != nil {
 		log.Error().
 			Err(err).
@@ -147,12 +147,14 @@ func (h *Handler) HandleUpload(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	url := fmt.Sprintf("%s/f/%s", h.service.config.BaseURL, uploadedFile.URLValue)
+
 	// Render success template
-	if err := pages.UploadSuccess(response.FileUrl, response.OriginalName).Render(r.Context(), w); err != nil {
+	if err := pages.UploadSuccess(url, uploadedFile.OriginalName).Render(r.Context(), w); err != nil {
 		log.Error().
 			Err(err).
-			Str("fileUrl", response.FileUrl).
-			Str("originalName", response.OriginalName).
+			Str("fileUrl", url).
+			Str("originalName", uploadedFile.OriginalName).
 			Msg("Error rendering success template")
 		http.Error(w, "Error rendering response", http.StatusInternalServerError)
 	}
@@ -308,7 +310,7 @@ func (h *Handler) HandleAPIUpload(w http.ResponseWriter, r *http.Request) {
 		UserID:  userContext.ID,
 	}
 
-	response, err := h.service.UploadFile(r.Context(), uploadReq)
+	uploadedFile, err := h.service.UploadFile(r.Context(), uploadReq)
 	if err != nil {
 		// Log the internal error but don't send it to the client
 		log.Error().
@@ -318,7 +320,8 @@ func (h *Handler) HandleAPIUpload(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	sendAPIResponse(w, http.StatusOK, true, response.FileUrl, nil)
+	url := fmt.Sprintf("%s/f/%s", h.service.config.BaseURL, uploadedFile.URLValue)
+	sendAPIResponse(w, http.StatusOK, true, url, nil)
 }
 
 // HandleFilesList handles the GET /files/list endpoint

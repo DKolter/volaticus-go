@@ -22,7 +22,7 @@ type Config struct {
 	Storage         StorageConfig
 }
 
-func (c *Config) String() {
+func (c *Config) Log() {
 	log.Info().
 		Int("port", c.Port).
 		Str("env", c.Env).

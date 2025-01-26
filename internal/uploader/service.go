@@ -76,7 +76,7 @@ func NewService(repo Repository, config *config.Config, storage storage.StorageP
 }
 
 // UploadFile handles the file upload process
-func (s *service) UploadFile(ctx context.Context, req *UploadRequest) (*models.CreateFileResponse, error) {
+func (s *service) UploadFile(ctx context.Context, req *UploadRequest) (*models.UploadedFile, error) {
 	// Verify file first
 	validation := s.ValidateFile(ctx, req.File, req.Header)
 	if !validation.IsValid {
@@ -96,7 +96,8 @@ func (s *service) UploadFile(ctx context.Context, req *UploadRequest) (*models.C
 	}
 
 	unixTimestamp := uint64(time.Now().UnixNano())
-	uniqueFilename := fmt.Sprintf("%d%s", unixTimestamp, ext)
+	randomChars := uuid.New().String()[:4] // include 4 random chars for the rare case of a collision
+	uniqueFilename := fmt.Sprintf("%s-%d%s", randomChars, unixTimestamp, ext)
 
 	// Upload file to storage
 	if _, err := s.storage.Upload(ctx, req.File, uniqueFilename); err != nil {
@@ -113,7 +114,7 @@ func (s *service) UploadFile(ctx context.Context, req *UploadRequest) (*models.C
 		UserID:         req.UserID,
 		CreatedAt:      time.Now(),
 		AccessCount:    0,
-		ExpiresAt:      time.Now().Add(time.Duration(s.config.UploadExpiresIn) * time.Hour),
+		ExpiresAt:      time.Now().Add(s.config.UploadExpiresIn),
 		URLValue:       urlValue,
 	}
 
@@ -129,17 +130,7 @@ func (s *service) UploadFile(ctx context.Context, req *UploadRequest) (*models.C
 		return nil, fmt.Errorf("saving to database: %w", err)
 	}
 
-	// Get URL for response
-	url, _, err := s.storage.GetURL(ctx, uniqueFilename)
-	if err != nil {
-		return nil, fmt.Errorf("getting file URL: %w", err)
-	}
-
-	return &models.CreateFileResponse{
-		FileUrl:      url,
-		OriginalName: req.Header.Filename,
-		UnixFilename: urlValue,
-	}, nil
+	return uploadedFile, nil
 }
 
 // GetFile retrieves file information
