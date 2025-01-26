@@ -32,6 +32,7 @@ func (c *Config) String() {
 		Dur("upload_expires_in", c.UploadExpiresIn).
 		Msg("server configuration")
 }
+}
 
 type StorageConfig struct {
 	// Provider type ("local" or "gcs")

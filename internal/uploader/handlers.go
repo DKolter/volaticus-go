@@ -170,7 +170,7 @@ func (h *Handler) HandleServeFile(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	file, err := h.service.GetFile(r.Context(), urlValue)
+	file, err := h.service.GetFile(r.Context(), urlvalue)
 	if err != nil {
 		if errors.Is(err, ErrNoRows) {
 			http.Error(w, "File not found", http.StatusNotFound)

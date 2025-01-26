@@ -121,7 +121,10 @@ func (s *service) UploadFile(ctx context.Context, req *UploadRequest) (*models.C
 	if err := s.repo.CreateWithURL(ctx, uploadedFile, urlValue); err != nil {
 		// Rollback file creation if database save fails
 		if delErr := s.storage.Delete(ctx, uniqueFilename); delErr != nil {
-			log.Printf("Error cleaning up file after failed database save: %v", delErr)
+			log.Error().
+				Err(delErr).
+				Str("filename", uniqueFilename).
+				Msg("failed to clean up file after failed database save")
 		}
 		return nil, fmt.Errorf("saving to database: %w", err)
 	}
@@ -152,7 +155,10 @@ func (s *service) GetFile(ctx context.Context, fileUrl string) (*models.Uploaded
 	}
 
 	if err := s.repo.IncrementAccessCount(ctx, file.ID); err != nil {
-		log.Printf("Error incrementing access count: %v", err)
+		log.Error().
+			Err(err).
+			Str("file_id", file.ID.String()).
+			Msg("failed to increment access count")
 	}
 
 	return file, nil
@@ -218,7 +224,11 @@ func (s *service) DeleteFileByID(ctx context.Context, fileID, userID uuid.UUID) 
 	}
 
 	if err := s.repo.Delete(ctx, fileID); err != nil {
-		log.Printf("Warning: File deleted from storage but database deletion failed: %v", err)
+		log.Error().
+			Err(err).
+			Str("file_id", fileID.String()).
+			Str("filename", file.UniqueFilename).
+			Msg("file deleted from storage but database deletion failed")
 		return fmt.Errorf("deleting file from database: %w", err)
 	}
 
@@ -247,8 +257,9 @@ func (s *service) ListStorageFiles(ctx context.Context, prefix string) ([]storag
 		if _, exists := dbFileMap[file.Name]; exists {
 			validFiles = append(validFiles, file)
 		} else {
-			// Optionally log orphaned files
-			log.Printf("Found orphaned file in storage: %s", file.Name)
+			log.Warn().
+				Str("filename", file.Name).
+				Msg("found orphaned file in storage")
 		}
 	}
 
@@ -264,12 +275,19 @@ func (s *service) CleanupExpiredFiles(ctx context.Context) error {
 
 	for _, file := range files {
 		if err := s.storage.Delete(ctx, file.UniqueFilename); err != nil {
-			log.Printf("Error deleting expired file %s from storage: %v", file.UniqueFilename, err)
+			log.Error().
+				Err(err).
+				Str("filename", file.UniqueFilename).
+				Msg("failed to delete expired file from storage")
 			continue
 		}
 
 		if err := s.repo.Delete(ctx, file.ID); err != nil {
-			log.Printf("Error deleting expired file %s record: %v", file.UniqueFilename, err)
+			log.Error().
+				Err(err).
+				Str("filename", file.UniqueFilename).
+				Str("file_id", file.ID.String()).
+				Msg("failed to delete expired file record")
 		}
 	}
 
@@ -301,18 +319,30 @@ func (s *service) SyncStorageWithDatabase(ctx context.Context) error {
 	// Find and handle orphaned storage files
 	for name := range storageMap {
 		if _, exists := dbMap[name]; !exists {
-			log.Printf("Deleting orphaned storage file: %s", name)
+			log.Info().
+				Str("filename", name).
+				Msg("deleting orphaned storage file")
 			if err := s.storage.Delete(ctx, name); err != nil {
-				log.Printf("Error deleting orphaned file %s: %v", name, err)
+				log.Error().
+					Err(err).
+					Str("filename", name).
+					Msg("failed to delete orphaned file")
 			}
 		}
 	}
 
 	for name, file := range dbMap {
 		if _, exists := storageMap[name]; !exists {
-			log.Printf("Deleting orphaned database record: %s", name)
+			log.Info().
+				Str("filename", name).
+				Str("file_id", file.ID.String()).
+				Msg("deleting orphaned database record")
 			if err := s.repo.Delete(ctx, file.ID); err != nil {
-				log.Printf("Error deleting orphaned record %s: %v", name, err)
+				log.Error().
+					Err(err).
+					Str("filename", name).
+					Str("file_id", file.ID.String()).
+					Msg("failed to delete orphaned record")
 			}
 		}
 	}

@@ -2,8 +2,9 @@ package uploader
 
 import (
 	"context"
-	"log"
 	"time"
+
+	"github.com/rs/zerolog/log"
 )
 
 type CleanupWorker struct {
@@ -34,25 +35,32 @@ func (w *CleanupWorker) Start(ctx context.Context) {
 
 	go w.run(ctx)
 
-	log.Printf("Started cleanup worker with interval: %v, sync interval: %v", w.interval, w.syncInterval)
+	log.Info().
+		Dur("interval", w.interval).
+		Dur("sync_interval", w.syncInterval).
+		Msg("started cleanup worker")
 }
 
 func (w *CleanupWorker) Stop() {
 	w.cleanupTicker.Stop()
 	w.syncTicker.Stop()
 	close(w.done)
-	log.Printf("Cleanup worker stopped")
+	log.Info().Msg("cleanup worker stopped")
 }
 
 func (w *CleanupWorker) performInitialCleanup(ctx context.Context) {
-	log.Printf("Performing initial cleanup...")
+	log.Info().Msg("performing initial cleanup")
 
 	if err := w.service.CleanupExpiredFiles(ctx); err != nil {
-		log.Printf("Error during initial expired files cleanup: %v", err)
+		log.Error().
+			Err(err).
+			Msg("error during initial expired files cleanup")
 	}
 
 	if err := w.service.SyncStorageWithDatabase(ctx); err != nil {
-		log.Printf("Error during initial storage sync: %v", err)
+		log.Error().
+			Err(err).
+			Msg("error during initial storage sync")
 	}
 }
 
@@ -60,17 +68,21 @@ func (w *CleanupWorker) run(ctx context.Context) {
 	for {
 		select {
 		case <-ctx.Done():
-			log.Printf("Context cancelled, cleanup worker shutting down")
+			log.Info().Msg("context cancelled, cleanup worker shutting down")
 			return
 		case <-w.done:
 			return
 		case <-w.cleanupTicker.C:
 			if err := w.service.CleanupExpiredFiles(ctx); err != nil {
-				log.Printf("Error cleaning up expired files: %v", err)
+				log.Error().
+					Err(err).
+					Msg("error cleaning up expired files")
 			}
 		case <-w.syncTicker.C:
 			if err := w.service.SyncStorageWithDatabase(ctx); err != nil {
-				log.Printf("Error syncing storage with database: %v", err)
+				log.Error().
+					Err(err).
+					Msg("error syncing storage with database")
 			}
 		}
 	}
