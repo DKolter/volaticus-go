@@ -2,18 +2,17 @@
 
 A modern, secure file sharing and URL shortening platform built with Go.
 
-
 <div align = center>
 
+---
+
+**[<kbd> <br> 🕹 Features <br> </kbd>][Features]**
+**[<kbd> <br> 🚀 Install <br> </kbd>][Installation]**
+**[<kbd> <br> 📘 Documentation <br> </kbd>][Documentation]**
+**[<kbd> <br> 💙 Contribute <br> </kbd>][Contribution]** 
 
 ---
 
-**[<kbd> <br> 🚀 Install <br> </kbd>][Installation]** 
-**[<kbd> <br> 📘 Documentation <br> </kbd>][Documentation]** 
-**[<kbd> <br> 🕹 Features <br> </kbd>][Features]** 
-**[<kbd> <br> 💙 Contribute <br> </kbd>][Contribution]**  
-
----
 </div>
 
 ## 🌟 Features
@@ -21,10 +20,11 @@ A modern, secure file sharing and URL shortening platform built with Go.
 ### File Sharing
 
 - 📤 Secure file uploads with customizable expiration
-- 🔗 Multiple URL generation styles (UUID, GfyCat-style, Custom)
+- 🔗 Multiple URL generation styles (UUID, GfyCat-style, etc.)
 - 📊 File access tracking and analytics
 - ⏰ Automatic cleanup of expired files
 - 🔒 User-based file management
+- 🗄️ Store files locally or in GCS buckets
 
 ### URL Shortening
 
@@ -63,19 +63,39 @@ cp .env.example .env
 3. Configure your environment variables in `.env`:
 
 ```env
+# Server configuration
 PORT=8080
 APP_ENV=production
-DB_HOST=psql
+BASE_URL=http://localhost:8080
+
+# Database configuration
+DB_HOST=localhost
 DB_PORT=5432
 DB_DATABASE=volaticus_db
 DB_USERNAME=volaticus_service
 DB_PASSWORD=very_secure_password
 DB_SCHEMA=public
-SECRET=your-secret-key
-BASE_URL=http://localhost
-UPLOAD_DIR=./uploads
+
+# Application secrets
+SECRET=your-secret-
+
+# File upload configuration
 MAX_UPLOAD_SIZE=150MB
-UPLOAD_EXPIRES_IN=24
+UPLOAD_EXPIRES_IN=24h
+
+# Storage configuration
+STORAGE_PROVIDER=local  # or 'gcs'
+
+# Local storage settings (if STORAGE_PROVIDER=local)
+UPLOAD_DIR=./uploads
+
+# GCS settings (if STORAGE_PROVIDER=gcs)
+GCS_PROJECT_ID=your-project-id
+GCS_BUCKET_NAME=your-bucket-name
+
+# Optional: Base64 encoded service account credentials
+# Only needed if not using Workload Identity or running outside GCP
+# GOOGLE_CLOUD_CREDENTIALS=<base64-encoded-service-account-json>
 ```
 
 4. Start the application:
@@ -94,7 +114,7 @@ Requirements:
 1. Clone and setup:
 
 ```bash
-git clone https://github.com/yourusername/volaticus.git
+git clone https://github.com/DKolter/volaticus-go.git
 cd volaticus
 cp .env.example .env
 ```
@@ -108,7 +128,7 @@ make dev-install
 3. Download Maxmind Geo-IP database, if you want to enable Geographic tracking
 
 ```
-internal/database/GeoLite2-City.mmdb
+curl -L -o GeoLite2-City.mmdb https://github.com/P3TERX/GeoLite.mmdb/raw/download/GeoLite2-City.mmdb
 ```
 
 4. Build the application:
@@ -138,6 +158,24 @@ Example NGINX configuration for reverse proxy:
 server {
     listen 80;
     server_name your-domain.com;
+    return 301 https://$host$request_uri;
+}
+
+server {
+    listen 443 ssl;
+    server_name your-domain.com;
+
+    ssl_certificate /path/to/your/certificate.crt;
+    ssl_certificate_key /path/to/your/private.key;
+
+    ssl_protocols TLSv1.2 TLSv1.3;
+    ssl_ciphers 'ECDHE-ECDSA-AES256-GCM-SHA384:ECDHE-RSA-AES256-GCM-SHA384:ECDHE-ECDSA-CHACHA20-POLY1305:ECDHE-RSA-CHACHA20-POLY1305:ECDHE-ECDSA-AES128-GCM-SHA256:ECDHE-RSA-AES128-GCM-SHA256';
+    ssl_prefer_server_ciphers on;
+    ssl_session_cache shared:SSL:10m;
+    ssl_session_timeout 10m;
+    ssl_stapling on;
+    ssl_stapling_verify on;
+    add_header Strict-Transport-Security "max-age=31536000; includeSubDomains" always;
 
     location / {
         proxy_pass http://localhost:8080;
@@ -153,7 +191,6 @@ server {
         proxy_connect_timeout 600;
         proxy_send_timeout 600;
     }
-
 }
 ```
 
@@ -164,23 +201,26 @@ Volaticus implements a sophisticated logging system using zerolog for structured
 ### Features
 
 - 🎨 Beautiful console output with visual hierarchy
-    - Color-coded HTTP methods and status codes
-    - Clear request/response correlation via request IDs
-    - Human readable timestamps and file sizes
+
+  - Color-coded HTTP methods and status codes
+  - Clear request/response correlation via request IDs
+  - Human readable timestamps and file sizes
 
 - 🔬 Environment-aware logging
-    - Development: Detailed debug information for local development
-    - Production: Clean, performance-optimized info logging
-    - Automatic static asset filtering to reduce noise
+
+  - Development: Detailed debug information for local development
+  - Production: Clean, performance-optimized info logging
+  - Automatic static asset filtering to reduce noise
 
 - 🔒 Privacy-conscious logging
-    - IP address anonymization
-    - User agent summarization
-    - No sensitive data logging
+  - IP address anonymization
+  - User agent summarization
+  - No sensitive data logging
 
 ### Log Levels
 
 The system supports multiple log levels in order of verbosity:
+
 - **DEBUG**: Detailed information for development and troubleshooting
 - **INFO**: General operational entries about system behavior
 - **WARN**: Warning messages for potentially harmful situations
@@ -188,10 +228,10 @@ The system supports multiple log levels in order of verbosity:
 
 Log levels are automatically set based on the environment but can be manually controlled via the `APP_ENV` variable.
 
-
 ### Configuration
 
 Set the environment in `.env`:
+
 ```env
 # Development: Detailed debug logs with all information
 APP_ENV=local/development
@@ -204,9 +244,9 @@ APP_ENV=production
 
 ### File Upload API
 
-You can upload files programmatically using the API endpoint. Here's how to use it with curl: 
+You can upload files programmatically using the API endpoint. Here's how to use it with curl:
 
-  First generate an API token in the web interface under Settings
+First generate an API token in the web interface under Settings
 
 ```bash
 # Upload a file
@@ -214,9 +254,10 @@ curl -X POST http://localhost:8080/api/v1/upload \
   -H "Authorization: Bearer your_api_token" \
   -F "file=@/path/to/your/file.jpg"
 ```
- Response will contain the file URL:
-```json
 
+Response will contain the file URL:
+
+```json
 {
   "success": true,
   "url": "http://localhost:8080/f/unique-file-url"
@@ -224,7 +265,8 @@ curl -X POST http://localhost:8080/api/v1/upload \
 ```
 
 Customize the URL format (optional)
-``` bash
+
+```bash
 # Available types: default, original_name, random, date, uuid, gfycat
 curl -X POST http://localhost:8080/api/v1/upload \
   -H "Authorization: Bearer your_api_token" \
