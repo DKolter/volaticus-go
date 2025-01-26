@@ -53,10 +53,10 @@ docker-down:
 test:
 	@echo "Testing..."
 	@go test ./... -v
-# Integrations Tests for the application
-itest:
-	@echo "Running integration tests..."
-	@go test ./internal/database -v
+
+lint:
+	@echo "Linting..."
+	@golangci-lint run
 
 # Clean the binary
 clean:
@@ -99,4 +99,4 @@ dev-clean:
 dev-logs:
 	docker compose -f docker-compose.dev.yml logs -f
 
-.PHONY: all build run test clean watch tailwind-install docker-run docker-down itest templ-install dev dev-up dev-down dev-logs dev-clean
+.PHONY: all build run test clean watch tailwind-install docker-run docker-down lint templ-install dev dev-up dev-down dev-logs dev-clean

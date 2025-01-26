@@ -40,11 +40,14 @@ func NewGCSStorage(projectID, bucketName string) (*GCSStorageProvider, error) {
 		)
 	} else {
 		if creds := os.Getenv("GOOGLE_CLOUD_CREDENTIALS"); creds != "" {
-			decodedCreds, err := base64.StdEncoding.DecodeString(creds)
-			if err != nil {
-				return nil, fmt.Errorf("invalid base64 credentials: %w", err)
+			decodedCreds, decodeErr := base64.StdEncoding.DecodeString(creds)
+			if decodeErr != nil {
+				return nil, fmt.Errorf("invalid base64 credentials: %w", decodeErr)
 			}
 			client, err = storage.NewClient(ctx, option.WithCredentialsJSON(decodedCreds))
+			if err != nil {
+				return nil, fmt.Errorf("failed to create storage client with credentials: %w", err)
+			}
 		} else {
 			client, err = storage.NewClient(ctx)
 		}
