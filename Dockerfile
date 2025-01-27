@@ -12,12 +12,18 @@ RUN go install github.com/a-h/templ/cmd/templ@v0.3.819 && \
     templ generate && \
     curl -sL https://github.com/tailwindlabs/tailwindcss/releases/download/v3.4.16/tailwindcss-linux-x64 -o tailwindcss && \
     chmod +x tailwindcss && \
-    ./tailwindcss -i cmd/web/assets/css/input.css -o cmd/web/assets/css/output.css
+    ./tailwindcss -i cmd/web/assets/css/input.css -o cmd/web/assets/css/output.css && \
+    curl -L -o GeoLite2-City.mmdb https://github.com/P3TERX/GeoLite.mmdb/raw/download/GeoLite2-City.mmdb
+
 
 # Build the binary with version information
 ARG VERSION=dev
 ARG COMMIT=unknown
 ARG BUILD_DATE=""
+
+ENV VERSION=${VERSION}
+ENV COMMIT=${COMMIT}
+ENV BUILD_DATE=${BUILD_DATE}
 
 RUN if [ -z "$BUILD_DATE" ]; then BUILD_DATE=$(date -u +%Y-%m-%dT%H:%M:%SZ); fi && \
     if [ "$COMMIT" = "unknown" ]; then COMMIT=$(git rev-parse --short HEAD); fi && \
@@ -28,8 +34,44 @@ RUN if [ -z "$BUILD_DATE" ]; then BUILD_DATE=$(date -u +%Y-%m-%dT%H:%M:%SZ); fi 
     -X main.date=${BUILD_DATE}" \
     -o volaticus cmd/api/main.go
 
-FROM alpine:3.20.1 AS prod
+# Development stage
+FROM golang:1.23-alpine AS dev
+
+RUN apk add --no-cache git curl make
+
 WORKDIR /app
+
+COPY go.mod go.sum ./
+RUN go mod download && \
+    git config --global --add safe.directory /app && \
+    addgroup -S volaticus && \
+    adduser -S volaticus -G volaticus
+
+USER volaticus
+
+# The rest of the source code will be mounted as a volume
+CMD ["make","watch"]
+
+# Production stage
+FROM alpine:3.20.1 AS prod
+
+# Create volaticus user and group
+RUN addgroup -S volaticus && \
+    adduser -S volaticus -G volaticus
+
+WORKDIR /app
+
+# Copy binary and data files
 COPY --from=build /app/volaticus /app/volaticus
+COPY --from=build /app/GeoLite2-City.mmdb /app/GeoLite2-City.mmdb
+
+# Set permissions
+RUN chmod 755 /app/volaticus && \
+    chmod 644 /app/GeoLite2-City.mmdb && \
+    chown -R volaticus:volaticus /app
+
+# Switch to volaticus user
+USER volaticus
+
 EXPOSE ${PORT}
 CMD ["./volaticus"]

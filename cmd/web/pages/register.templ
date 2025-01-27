@@ -32,6 +32,8 @@ templ RegisterPage() {
 							name="email"
 							type="email"
 							required
+							pattern="[a-z0-9._%+-]+@[a-z0-9.-]+\.[a-z]{2,}$"
+							title="Please enter a valid email address"
 							class="block w-full rounded-md border-0 bg-white/5 px-3 py-1.5 text-white shadow-sm ring-1 ring-inset ring-white/10 focus:ring-2 focus:ring-inset focus:ring-indigo-500 sm:text-sm sm:leading-6"
 						/>
 					</div>
@@ -46,6 +48,8 @@ templ RegisterPage() {
 							name="username"
 							type="text"
 							required
+							pattern="^[a-zA-Z][a-zA-Z0-9_-]{2,49}$"
+							title="Username must be 3-50 characters long, start with a letter, and contain only letters, numbers, underscores, or hyphens"
 							class="block w-full rounded-md border-0 bg-white/5 px-3 py-1.5 text-white shadow-sm ring-1 ring-inset ring-white/10 focus:ring-2 focus:ring-inset focus:ring-indigo-500 sm:text-sm sm:leading-6"
 						/>
 					</div>
@@ -60,6 +64,8 @@ templ RegisterPage() {
 							name="password"
 							type="password"
 							required
+							pattern="^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?.&]).{8,}$"
+							title="Password must be at least 8 characters long and contain at least one uppercase letter, one lowercase letter, one number, and one special character"
 							class="block w-full rounded-md border-0 bg-white/5 px-3 py-1.5 text-white shadow-sm ring-1 ring-inset ring-white/10 focus:ring-2 focus:ring-inset focus:ring-indigo-500 sm:text-sm sm:leading-6"
 						/>
 					</div>

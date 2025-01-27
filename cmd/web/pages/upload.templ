@@ -1,6 +1,11 @@
 package pages
 
-templ UploadForm() {
+import (
+	"fmt"
+	"time"
+)
+
+templ UploadForm(uploadExpiresIn time.Duration) {
 	<form
 		class="max-w-3xl mx-auto"
 		hx-post="/upload"
@@ -59,6 +64,12 @@ templ UploadForm() {
 				</select>
 				<p class="mt-2 text-sm text-gray-400">
 					Choose how your file URL will be generated
+				</p>
+			</div>
+			<!-- Upload Expiration Information -->
+			<div class="bg-gray-800 p-6 rounded-lg border border-gray-700">
+				<p class="text-sm text-gray-400">
+					Uploads will be accessible for <span class="font-semibold">{ FormatDuration(uploadExpiresIn) }</span>.
 				</p>
 			</div>
 			<!-- Upload Button and Progress -->
@@ -133,7 +144,7 @@ templ UploadForm() {
     </script>
 }
 
-templ UploadPage() {
+templ UploadPage(uploadExpiresIn time.Duration) {
 	@DashboardLayout() {
 		<div class="px-4 py-6 sm:px-0">
 			<div class="flex justify-between items-center mb-6">
@@ -143,7 +154,7 @@ templ UploadPage() {
 				</div>
 			</div>
 			<div class="max-w-3xl mx-auto">
-				@UploadForm()
+				@UploadForm(uploadExpiresIn)
 			</div>
 		</div>
 	}
@@ -174,4 +185,19 @@ templ UploadError(message string) {
 		<p class="font-bold">Upload Failed!</p>
 		<p class="text-sm">{ message }</p>
 	</div>
+}
+
+func FormatDuration(d time.Duration) string {
+	hours := int(d.Hours())
+	days := hours / 24
+	hours = hours % 24
+	minutes := int(d.Minutes()) % 60
+
+	if days > 0 {
+		return fmt.Sprintf("%d days, %d hours, and %d minutes", days, hours, minutes)
+	} else if hours > 0 {
+		return fmt.Sprintf("%d hours and %d minutes", hours, minutes)
+	} else {
+		return fmt.Sprintf("%d minutes", minutes)
+	}
 }

@@ -34,6 +34,10 @@ var (
 		"kindhearted", "lovable", "meticulous", "natural", "observant",
 		"persistent", "quickwitted", "reliable", "spirited", "thoughtprovoking",
 		"unassuming", "vivacious", "wonderful", "xenial", "zestful",
+		"thoughtprovoking", "quickthinking", "farsighted", "goodnatured", "levelheaded",
+		"lighthearted", "openminded", "sharpminded", "strongwilled", "warmhearted",
+		"wellrounded", "clearheaded", "deepthinking", "freespirited", "highminded",
+		"innovative", "insightful", "purposeful", "resourceful", "visionary",
 	}
 
 	animals = []string{
@@ -46,7 +50,7 @@ var (
 		"flamingo", "goat", "hedgehog", "impala", "jellyfish",
 		"koala", "lemur", "moose", "newt", "ostrich",
 		"panda", "quail", "raccoon", "sheep", "toucan",
-		"urchin", "vole", "walrus", "xray fish", "yak",
+		"urchin", "vole", "walrus", "xrayfish", "yak",
 		"antelope", "beaver", "cougar", "deer", "emu",
 		"ferret", "gecko", "hamster", "ibis", "jackal",
 		"kudu", "llama", "marmot", "numbat", "oryx",
@@ -57,6 +61,9 @@ var (
 		"kingfisher", "lynx", "manatee", "nighthawk", "osprey",
 		"peacock", "quoll", "robin", "sparrow", "terrapin",
 		"urchin", "viper", "wolf", "xenops", "yellowtail",
+		"aardvark", "blackbird", "dragonfly", "firefly", "greyhound",
+		"honeybee", "kingcobra", "ladybug", "mantisshrimp", "peacockspider",
+		"redpanda", "seahorse", "sugarglider", "thunderbird", "widowbird",
 	}
 
 	colors = []string{
@@ -65,21 +72,24 @@ var (
 		"kotlin", "lavender", "maroon", "navy", "olive",
 		"purple", "quartz", "ruby", "silver", "teal",
 		"umber", "violet", "white", "xanthic", "yellow",
-		"aqua", "beige", "charcoal", "dusty rose", "eggplant",
-		"forest green", "grape", "honey", "ivory", "khaki",
-		"lime", "magenta", "neon green", "ocean", "peach",
-		"quince", "rose gold", "sapphire", "taupe", "umber",
-		"vermillion", "wine", "xenon blue", "blurple", "zinc",
+		"aqua", "beige", "charcoal", "dustyrose", "eggplant",
+		"forestgreen", "grape", "honey", "ivory", "khaki",
+		"lime", "magenta", "neongreen", "ocean", "peach",
+		"quince", "rosegold", "sapphire", "taupe", "umber",
+		"vermillion", "wine", "xenonblue", "blurple", "zinc",
 		"apricot", "bronze", "cobalt", "dandelion", "ebony",
-		"firebrick", "glacier", "harvest gold", "iris", "jasmine",
-		"kiwi", "lemon", "mint", "neon pink", "obsidian",
-		"pale blue", "quartz pink", "raspberry", "sand", "terracotta",
-		"ultramarine", "vanilla", "whisper white", "xanadu", "zircon",
+		"firebrick", "glacier", "harvestgold", "iris", "jasmine",
+		"kiwi", "lemon", "mint", "neonpink", "obsidian",
+		"paleblue", "quartzpink", "raspberry", "sand", "terracotta",
+		"ultramarine", "vanilla", "whisperwhite", "xanadu", "zircon",
 		"ash", "blush", "cerulean", "daffodil", "eucalyptus",
 		"flame", "granite", "heather", "ice", "jet",
-		"kelly green", "lilac", "moss", "nylon", "opal",
-		"pearl", "quasar yellow", "redwood", "slate", "topaz",
-		"umber", "velvet", "wheat", "xenic", "zenith blue",
+		"kellygreen", "lilac", "moss", "nylon", "opal",
+		"pearl", "quasaryellow", "redwood", "slate", "topaz",
+		"umber", "velvet", "wheat", "xenic", "zenithblue",
+		"battleshipgrey", "candyapple", "deepburgundy", "electricblue",
+		"fallleaf", "glacierblue", "hotpink", "midnightblue",
+		"oceanwave", "powderblue", "royalpurple", "sunsetred",
 	}
 )
 

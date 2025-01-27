@@ -2,12 +2,13 @@ package logger
 
 import (
 	"fmt"
-	"github.com/mattn/go-isatty"
-	"github.com/rs/zerolog"
-	"github.com/rs/zerolog/log"
 	"os"
 	"regexp"
 	"strings"
+
+	"github.com/mattn/go-isatty"
+	"github.com/rs/zerolog"
+	"github.com/rs/zerolog/log"
 )
 
 type ColorScheme struct {
@@ -67,6 +68,8 @@ func Init(env string) {
 		FormatLevel: func(i interface{}) string {
 			level := strings.ToUpper(fmt.Sprintf("%s", i))
 			switch level {
+			case "DEBUG":
+				return fmt.Sprintf("%s●%s", scheme.Gray, scheme.Reset)
 			case "INFO":
 				return fmt.Sprintf("%s●%s", scheme.Blue, scheme.Reset)
 			case "WARN":

@@ -41,3 +41,6 @@ tailwindcss
 
 # uploads directory
 uploads/
+
+# Database
+*.mmdb

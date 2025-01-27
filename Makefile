@@ -4,18 +4,14 @@
 all: build test
 templ-install:
 	@if ! command -v templ > /dev/null; then \
-		read -p "Go's 'templ' is not installed on your machine. Do you want to install it? [Y/n] " choice; \
-		if [ "$$choice" != "n" ] && [ "$$choice" != "N" ]; then \
-			go install github.com/a-h/templ/cmd/templ@latest; \
-			if [ ! -x "$$(command -v templ)" ]; then \
-				echo "templ installation failed. Exiting..."; \
-				exit 1; \
-			fi; \
-		else \
-			echo "You chose not to install templ. Exiting..."; \
+		echo "Go's 'templ' is not installed on your machine. Installing..."; \
+		go install github.com/a-h/templ/cmd/templ@latest; \
+		if [ ! -x "$$(command -v templ)" ]; then \
+			echo "templ installation failed. Exiting..."; \
 			exit 1; \
 		fi; \
 	fi
+
 tailwind-install:
 	@if [ ! -f tailwindcss ]; then \
         if [ "$$(uname)" = "Darwin" ]; then \
@@ -57,10 +53,10 @@ docker-down:
 test:
 	@echo "Testing..."
 	@go test ./... -v
-# Integrations Tests for the application
-itest:
-	@echo "Running integration tests..."
-	@go test ./internal/database -v
+
+lint:
+	@echo "Linting..."
+	@golangci-lint run
 
 # Clean the binary
 clean:
@@ -85,4 +81,22 @@ watch:
             fi; \
         fi
 
-.PHONY: all build run test clean watch tailwind-install docker-run docker-down itest templ-install
+# Development
+
+dev: dev-up
+	docker compose -f docker-compose.dev.yml logs -f
+
+dev-up:
+	mkdir -p ./tmp ./tmp/psql ./tmp/gcs
+	docker compose -f docker-compose.dev.yml up --build
+
+dev-down:
+	docker compose -f docker-compose.dev.yml down
+
+dev-clean:
+	docker compose -f docker-compose.dev.yml down -v
+
+dev-logs:
+	docker compose -f docker-compose.dev.yml logs -f
+
+.PHONY: all build run test clean watch tailwind-install docker-run docker-down lint templ-install dev dev-up dev-down dev-logs dev-clean

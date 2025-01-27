@@ -4,12 +4,14 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"github.com/rs/zerolog/log"
 	"net/http"
 	"time"
 	"volaticus-go/internal/config"
 	"volaticus-go/internal/dashboard"
 	"volaticus-go/internal/shortener"
+	"volaticus-go/internal/storage"
+
+	"github.com/rs/zerolog/log"
 
 	_ "github.com/joho/godotenv/autoload"
 
@@ -23,6 +25,7 @@ import (
 type Server struct {
 	config           *config.Config
 	db               *database.DB
+	storage          storage.StorageProvider
 	authService      auth.Service
 	userService      user.Service
 	authHandler      *auth.Handler
@@ -34,17 +37,30 @@ type Server struct {
 
 // NewServer creates a new server instance
 func NewServer(config *config.Config, db *database.DB) (*Server, error) {
+	// Initialize Storage
+	storageProvider, err := storage.NewStorageProvider(storage.StorageConfig{
+		Provider:   config.Storage.Provider,
+		LocalPath:  config.Storage.LocalPath,
+		BaseURL:    config.BaseURL,
+		ProjectID:  config.Storage.ProjectID,
+		BucketName: config.Storage.BucketName,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("initializing storage provider: %w", err)
+	}
+	log.Printf("Using %s storage provider", config.Storage.Provider)
+
 	// Initialize repositories
 	userRepo := user.NewRepository(db)
 	tokenRepo := auth.NewRepository(db)
-	fileRepo := uploader.NewRepository(db)
+	fileRepo := uploader.NewRepository(db, *config)
 	shortenerRepo := shortener.NewRepository(db)
 	dashboardRepo := dashboard.NewRepository(db)
 
 	// Initialize Services
 	authService := auth.NewService(config.Secret, tokenRepo)
 	userService := user.NewService(userRepo)
-	fileService := uploader.NewService(fileRepo, config)
+	fileService := uploader.NewService(fileRepo, config, storageProvider)
 	dashboardService := dashboard.NewService(dashboardRepo)
 
 	// Initialize file service & start expired files worker
@@ -64,6 +80,7 @@ func NewServer(config *config.Config, db *database.DB) (*Server, error) {
 	server := &Server{
 		config:           config,
 		db:               db,
+		storage:          storageProvider,
 		authService:      authService,
 		userService:      userService,
 		authHandler:      authHandler,
@@ -112,4 +129,14 @@ func (s *Server) sendJSON(w http.ResponseWriter, status int, success bool, messa
 			Interface("response", response).
 			Msg("failed to encode JSON response")
 	}
+}
+
+func (s *Server) Close() error {
+	if err := s.storage.Close(); err != nil {
+		log.Printf("Error closing storage provider: %v", err)
+	}
+	if err := s.db.Close(); err != nil {
+		log.Printf("Error closing database connection: %v", err)
+	}
+	return nil
 }

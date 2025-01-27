@@ -141,6 +141,7 @@ type FileStats struct {
 	TotalFiles   int      `db:"total_files"`   // Total number of files uploaded
 	TotalSize    int64    `db:"total_size"`    // Total size of all files in bytes
 	TotalViews   int64    `db:"total_views"`   // Total number of views
+	StorageQuota int64    `db:"storage_quota"` // User's storage quota in bytes
 	PopularTypes []string `db:"popular_types"` // Most common file types
 }
 

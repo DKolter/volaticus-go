@@ -4,8 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"github.com/rs/zerolog"
-	"github.com/rs/zerolog/log"
 	"net/http"
 	"os"
 	"os/signal"
@@ -13,6 +11,9 @@ import (
 	"time"
 	"volaticus-go/internal/config"
 	"volaticus-go/internal/logger"
+
+	"github.com/rs/zerolog"
+	"github.com/rs/zerolog/log"
 
 	"volaticus-go/internal/database"
 	"volaticus-go/internal/database/migrate"

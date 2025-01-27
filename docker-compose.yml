@@ -10,7 +10,7 @@ services:
     environment:
       APP_ENV: ${APP_ENV}
       PORT: ${PORT}
-      DB_HOST: "psql"
+      DB_HOST: psql
       DB_PORT: 5432
       DB_DATABASE: ${DB_DATABASE}
       DB_USERNAME: ${DB_USERNAME}
@@ -22,6 +22,10 @@ services:
       UPLOAD_MAX_SIZE: ${UPLOAD_MAX_SIZE}
       UPLOAD_USER_MAX_SIZE: ${UPLOAD_USER_MAX_SIZE}
       UPLOAD_EXPIRES_IN: ${UPLOAD_EXPIRES_IN}
+      STORAGE_PROVIDER: ${STORAGE_PROVIDER}
+      GCS_PROJECT_ID: ${GCS_PROJECT_ID}
+      GCS_BUCKET_NAME: ${GCS_BUCKET_NAME}
+      GOOGLE_CLOUD_CREDENTIALS: ${GOOGLE_CLOUD_CREDENTIALS}
     depends_on:
       psql:
         condition: service_healthy

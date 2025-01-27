@@ -163,7 +163,7 @@ templ URLList(urls []*models.ShortenedURL) {
 				</thead>
 				<tbody class="divide-y divide-gray-700">
 					for _, url := range urls {
-						<tr hx-confirm="Are you sure you want to delete this URL? " class="hover:bg-gray-700">
+						<tr hx-confirm="" class="hover:bg-gray-700">
 							<td class="px-6 py-4 whitespace-nowrap text-sm">
 								<div class="flex items-center">
 									<a

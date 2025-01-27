@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"volaticus-go/internal/common/models"
+	"volaticus-go/internal/config"
 	"volaticus-go/internal/database"
 
 	"github.com/google/uuid"
@@ -29,12 +30,14 @@ type Repository interface {
 
 type repository struct {
 	*database.Repository
+	cfg config.Config
 }
 
 // NewRepository creates a new uploader repository
-func NewRepository(db *database.DB) Repository {
+func NewRepository(db *database.DB, cfg config.Config) Repository {
 	return &repository{
 		Repository: database.NewRepository(db),
+		cfg:        cfg,
 	}
 }
 
@@ -233,6 +236,9 @@ func (r *repository) GetFileStats(ctx context.Context, userID uuid.UUID) (*model
 	if err != nil {
 		return nil, fmt.Errorf("getting total views: %w", err)
 	}
+
+	// Set storage quota from config
+	stats.StorageQuota = int64(r.cfg.UploadUserQuota)
 
 	return &stats, nil
 }
