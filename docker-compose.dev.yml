@@ -22,6 +22,11 @@ services:
       DB_SCHEMA: ${DB_SCHEMA}
       SECRET: ${SECRET}
       BASE_URL: ${BASE_URL}
+      UPLOAD_MAX_SIZE: ${UPLOAD_MAX_SIZE}
+      UPLOAD_USER_MAX_SIZE: ${UPLOAD_USER_MAX_SIZE}
+      UPLOAD_EXPIRES_IN: ${UPLOAD_EXPIRES_IN}
+      UPLOAD_DIR: ${UPLOAD_DIR}
+      GOOGLE_CLOUD_CREDENTIALS: ${GOOGLE_CLOUD_CREDENTIALS}
     volumes:
       - .:/app # Mount source code for live reload
     networks:

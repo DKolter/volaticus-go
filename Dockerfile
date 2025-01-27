@@ -39,15 +39,35 @@ WORKDIR /app
 
 COPY go.mod go.sum ./
 RUN go mod download && \
-    git config --global --add safe.directory /app
+    git config --global --add safe.directory /app && \
+    addgroup -S volaticus && \
+    adduser -S volaticus -G volaticus
+
+USER volaticus
 
 # The rest of the source code will be mounted as a volume
 CMD ["make","watch"]
 
 # Production stage
 FROM alpine:3.20.1 AS prod
+
+# Create volaticus user and group
+RUN addgroup -S volaticus && \
+    adduser -S volaticus -G volaticus
+
 WORKDIR /app
+
+# Copy binary and data files
 COPY --from=build /app/volaticus /app/volaticus
 COPY --from=build /app/GeoLite2-City.mmdb /app/GeoLite2-City.mmdb
+
+# Set permissions
+RUN chmod 755 /app/volaticus && \
+    chmod 644 /app/GeoLite2-City.mmdb && \
+    chown -R volaticus:volaticus /app
+
+# Switch to volaticus user
+USER volaticus
+
 EXPOSE ${PORT}
 CMD ["./volaticus"]
