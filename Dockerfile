@@ -21,6 +21,10 @@ ARG VERSION=dev
 ARG COMMIT=unknown
 ARG BUILD_DATE=""
 
+ENV VERSION=${VERSION}
+ENV COMMIT=${COMMIT}
+ENV BUILD_DATE=${BUILD_DATE}
+
 RUN if [ -z "$BUILD_DATE" ]; then BUILD_DATE=$(date -u +%Y-%m-%dT%H:%M:%SZ); fi && \
     if [ "$COMMIT" = "unknown" ]; then COMMIT=$(git rev-parse --short HEAD); fi && \
     CGO_ENABLED=0 go build \
