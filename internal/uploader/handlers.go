@@ -54,8 +54,15 @@ func (h *Handler) HandleVerifyFile(w http.ResponseWriter, r *http.Request) {
 		}
 	}(file)
 
+	// Get the user context
+	userContext := userctx.GetUserFromContext(r.Context())
+	if userContext == nil {
+		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		return
+	}
+
 	// Validate the file using service
-	result := h.service.VerifyFile(r.Context(), file, header)
+	result := h.service.VerifyFile(r.Context(), file, header, userContext.ID)
 
 	if !result.IsValid {
 		err := components.ValidationError(result.Error).Render(r.Context(), w)
@@ -122,7 +129,7 @@ func (h *Handler) HandleUpload(w http.ResponseWriter, r *http.Request) {
 		UserID:  userContext.ID,
 	}
 
-	response, err := h.service.UploadFile(r.Context(), uploadReq)
+	response, err := h.service.UploadFile(r.Context(), uploadReq, userContext.ID)
 	if err != nil {
 		log.Error().
 			Err(err).
@@ -282,7 +289,7 @@ func (h *Handler) HandleAPIUpload(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Process upload
-	response, err := h.service.UploadFile(r.Context(), uploadReq)
+	response, err := h.service.UploadFile(r.Context(), uploadReq, userContext.ID)
 	if err != nil {
 		// Log the internal error but don't send it to the client
 		log.Error().

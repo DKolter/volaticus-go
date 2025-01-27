@@ -10,13 +10,14 @@ import (
 
 // Config holds server configuration
 type Config struct {
-	Port            int    // Port to listen on
-	Secret          string // Secret key for JWT & api tokens
-	Env             string // Environment (dev | prod)
-	BaseURL         string // Base URL for the server
-	UploadDirectory string // Directory to store uploaded files
-	MaxUploadSize   int64  // Maximum upload size in bytes
-	UploadExpiresIn int    // Upload expiration time in hours
+	Port              int    // Port to listen on
+	Secret            string // Secret key for JWT & api tokens
+	Env               string // Environment (dev | prod)
+	BaseURL           string // Base URL for the server
+	UploadDirectory   string // Directory to store uploaded files
+	MaxUploadSize     int64  // Maximum upload size in bytes
+	MaxUserUploadSize int64  // Maximum upload size per user in bytes
+	UploadExpiresIn   int    // Upload expiration time in hours
 }
 
 func (c *Config) String() {
@@ -26,6 +27,7 @@ func (c *Config) String() {
 		Str("base_url", c.BaseURL).
 		Str("upload_dir", c.UploadDirectory).
 		Int64("max_upload_size", c.MaxUploadSize).
+		Int64("max_user_upload_size", c.MaxUserUploadSize).
 		Int("upload_expires_in", c.UploadExpiresIn).
 		Msg("server configuration")
 }
@@ -69,6 +71,16 @@ func NewConfig() (*Config, error) {
 		return nil, err
 	}
 
+	maxUserUploadSizeStr := os.Getenv("MAX_USER_UPLOAD_SIZE")
+	if maxUserUploadSizeStr == "" {
+		maxUserUploadSizeStr = "100MB" // Default value
+	}
+	maxUserUploadSize, err := parseMaxUploadSize(maxUserUploadSizeStr)
+	if err != nil {
+		log.Error().Err(err).Msg("invalid MAX_USER_UPLOAD_SIZE configuration")
+		return nil, err
+	}
+
 	uploadExpiresInStr := os.Getenv("UPLOAD_EXPIRES_IN")
 	if uploadExpiresInStr == "" {
 		uploadExpiresInStr = "24" // Default value
@@ -80,13 +92,14 @@ func NewConfig() (*Config, error) {
 	}
 
 	return &Config{
-		Port:            port,
-		Secret:          secret,
-		Env:             env,
-		BaseURL:         baseURL,
-		UploadDirectory: uploadDirectory,
-		MaxUploadSize:   maxUploadSize,
-		UploadExpiresIn: uploadExpiresIn,
+		Port:              port,
+		Secret:            secret,
+		Env:               env,
+		BaseURL:           baseURL,
+		UploadDirectory:   uploadDirectory,
+		MaxUploadSize:     maxUploadSize,
+		MaxUserUploadSize: maxUserUploadSize,
+		UploadExpiresIn:   uploadExpiresIn,
 	}, nil
 }
 
