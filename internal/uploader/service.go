@@ -68,15 +68,28 @@ type FileValidationResult struct {
 }
 
 // VerifyFile checks if the file meets upload requirements
-func (s *service) VerifyFile(ctx context.Context, file multipart.File, header *multipart.FileHeader) *FileValidationResult {
+func (s *service) VerifyFile(ctx context.Context, file multipart.File, header *multipart.FileHeader, userID uuid.UUID) *FileValidationResult {
 	result := &FileValidationResult{
 		FileName: header.Filename,
 		FileSize: header.Size,
 	}
 
 	// Check file size
-	if header.Size > s.config.MaxUploadSize {
-		result.Error = "File too large (max 100MB)"
+	if header.Size > s.config.UploadMaxSize {
+		result.Error = "File too large"
+		return result
+	}
+
+	// Get user file stats
+	stats, err := s.GetFileStats(ctx, userID)
+	if err != nil {
+		result.Error = "Error fetching file stats"
+		return result
+	}
+
+	// Check user upload limit
+	if stats.TotalSize+header.Size > s.config.UploadUserMaxSize {
+		result.Error = "User upload limit reached"
 		return result
 	}
 
@@ -112,9 +125,11 @@ func (s *service) VerifyFile(ctx context.Context, file multipart.File, header *m
 	return result
 }
 
-func (s *service) UploadFile(ctx context.Context, req *UploadRequest) (*models.CreateFileResponse, error) {
+// func (s *service) VerifyMaxUploadSize()
+
+func (s *service) UploadFile(ctx context.Context, req *UploadRequest, userID uuid.UUID) (*models.CreateFileResponse, error) {
 	// Verify file first
-	validation := s.VerifyFile(ctx, req.File, req.Header)
+	validation := s.VerifyFile(ctx, req.File, req.Header, userID)
 	if !validation.IsValid {
 		return nil, fmt.Errorf("file validation failed: %s", validation.Error)
 	}

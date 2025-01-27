@@ -54,8 +54,15 @@ func (h *Handler) HandleVerifyFile(w http.ResponseWriter, r *http.Request) {
 		}
 	}(file)
 
+	// Get the user context
+	userContext := userctx.GetUserFromContext(r.Context())
+	if userContext == nil {
+		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		return
+	}
+
 	// Validate the file using service
-	result := h.service.VerifyFile(r.Context(), file, header)
+	result := h.service.VerifyFile(r.Context(), file, header, userContext.ID)
 
 	if !result.IsValid {
 		err := components.ValidationError(result.Error).Render(r.Context(), w)
@@ -122,7 +129,7 @@ func (h *Handler) HandleUpload(w http.ResponseWriter, r *http.Request) {
 		UserID:  userContext.ID,
 	}
 
-	response, err := h.service.UploadFile(r.Context(), uploadReq)
+	response, err := h.service.UploadFile(r.Context(), uploadReq, userContext.ID)
 	if err != nil {
 		log.Error().
 			Err(err).
@@ -232,7 +239,7 @@ func (h *Handler) HandleAPIUpload(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Check content length against max size before reading the file
-	if r.ContentLength > h.service.config.MaxUploadSize {
+	if r.ContentLength > h.service.config.UploadMaxSize {
 		sendAPIResponse(w, http.StatusRequestEntityTooLarge, false, "", ErrFileTooLarge)
 		return
 	}
@@ -257,7 +264,7 @@ func (h *Handler) HandleAPIUpload(w http.ResponseWriter, r *http.Request) {
 	}(file)
 
 	// Validate file size again after reading the header
-	if header.Size > h.service.config.MaxUploadSize {
+	if header.Size > h.service.config.UploadMaxSize {
 		sendAPIResponse(w, http.StatusRequestEntityTooLarge, false, "", ErrFileTooLarge)
 		return
 	}
@@ -282,7 +289,7 @@ func (h *Handler) HandleAPIUpload(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Process upload
-	response, err := h.service.UploadFile(r.Context(), uploadReq)
+	response, err := h.service.UploadFile(r.Context(), uploadReq, userContext.ID)
 	if err != nil {
 		// Log the internal error but don't send it to the client
 		log.Error().

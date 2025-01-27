@@ -20,6 +20,7 @@ services:
       BASE_URL: ${BASE_URL}
       UPLOAD_DIR: ${UPLOAD_DIR}
       UPLOAD_MAX_SIZE: ${UPLOAD_MAX_SIZE}
+      UPLOAD_USER_MAX_SIZE: ${UPLOAD_USER_MAX_SIZE}
       UPLOAD_EXPIRES_IN: ${UPLOAD_EXPIRES_IN}
     depends_on:
       psql:
