@@ -1,6 +1,6 @@
 FROM golang:1.23-alpine AS build
 
-RUN apk add --no-cache curl git
+RUN apk add --no-cache curl git npm
 
 WORKDIR /app
 
@@ -10,9 +10,8 @@ RUN go mod download
 COPY . .
 RUN go install github.com/a-h/templ/cmd/templ@v0.3.819 && \
     templ generate && \
-    curl -sL https://github.com/tailwindlabs/tailwindcss/releases/download/v3.4.16/tailwindcss-linux-x64 -o tailwindcss && \
-    chmod +x tailwindcss && \
-    ./tailwindcss -i cmd/web/assets/css/input.css -o cmd/web/assets/css/output.css && \
+    npm install -g tailwindcss@3.4.16 && \
+    tailwindcss -i cmd/web/assets/css/input.css -o cmd/web/assets/css/output.css && \
     curl -L -o GeoLite2-City.mmdb https://github.com/P3TERX/GeoLite.mmdb/raw/download/GeoLite2-City.mmdb
 
 
