@@ -21,8 +21,8 @@ func TestNewConfig(t *testing.T) {
 				"APP_ENV":              "development",
 				"BASE_URL":             "http://localhost",
 				"UPLOAD_DIR":           "./uploads",
-				"MAX_UPLOAD_SIZE":      "25MB",
-				"MAX_USER_UPLOAD_SIZE": "100MB",
+				"UPLOAD_MAX_SIZE":      "25MB",
+				"UPLOAD_USER_MAX_SIZE": "100MB",
 				"UPLOAD_EXPIRES_IN":    "24",
 			},
 			want: &Config{
@@ -31,8 +31,8 @@ func TestNewConfig(t *testing.T) {
 				Env:               "development",
 				BaseURL:           "http://localhost",
 				UploadDirectory:   "./uploads",
-				MaxUploadSize:     25 * 1024 * 1024,
-				MaxUserUploadSize: 100 * 1024 * 1024,
+				UploadMaxSize:     25 * 1024 * 1024,
+				UploadUserMaxSize: 100 * 1024 * 1024,
 				UploadExpiresIn:   24,
 			},
 			wantErr: false,
@@ -44,23 +44,23 @@ func TestNewConfig(t *testing.T) {
 				"APP_ENV":              "development",
 				"BASE_URL":             "http://localhost",
 				"UPLOAD_DIR":           "./uploads",
-				"MAX_UPLOAD_SIZE":      "25MB",
-				"MAX_USER_UPLOAD_SIZE": "100MB",
+				"UPLOAD_MAX_SIZE":      "25MB",
+				"UPLOAD_USER_MAX_SIZE": "100MB",
 				"UPLOAD_EXPIRES_IN":    "24",
 			},
 			want:    nil,
 			wantErr: true,
 		},
 		{
-			name: "Invalid MAX_UPLOAD_SIZE",
+			name: "Invalid UPLOAD_MAX_SIZE",
 			envVars: map[string]string{
 				"PORT":                 "8080",
 				"SECRET":               "mysecret",
 				"APP_ENV":              "development",
 				"BASE_URL":             "http://localhost",
 				"UPLOAD_DIR":           "./uploads",
-				"MAX_UPLOAD_SIZE":      "invalid",
-				"MAX_USER_UPLOAD_SIZE": "invalid",
+				"UPLOAD_MAX_SIZE":      "invalid",
+				"UPLOAD_USER_MAX_SIZE": "invalid",
 				"UPLOAD_EXPIRES_IN":    "24",
 			},
 			want:    nil,
@@ -73,8 +73,8 @@ func TestNewConfig(t *testing.T) {
 				"APP_ENV":              "",
 				"BASE_URL":             "",
 				"UPLOAD_DIR":           "",
-				"MAX_UPLOAD_SIZE":      "",
-				"MAX_USER_UPLOAD_SIZE": "",
+				"UPLOAD_MAX_SIZE":      "",
+				"UPLOAD_USER_MAX_SIZE": "",
 				"UPLOAD_EXPIRES_IN":    "",
 			},
 			want:    nil,
@@ -88,8 +88,8 @@ func TestNewConfig(t *testing.T) {
 				"APP_ENV":              "development",
 				"BASE_URL":             "http://localhost",
 				"UPLOAD_DIR":           "./uploads",
-				"MAX_UPLOAD_SIZE":      "25MB",
-				"MAX_USER_UPLOAD_SIZE": "100MB",
+				"UPLOAD_MAX_SIZE":      "25MB",
+				"UPLOAD_USER_MAX_SIZE": "100MB",
 				"UPLOAD_EXPIRES_IN":    "24",
 			},
 			want:    nil,
@@ -103,8 +103,8 @@ func TestNewConfig(t *testing.T) {
 				"APP_ENV":              "development",
 				"BASE_URL":             "http://localhost",
 				"UPLOAD_DIR":           "./uploads",
-				"MAX_UPLOAD_SIZE":      "25MB",
-				"MAX_USER_UPLOAD_SIZE": "100MB",
+				"UPLOAD_MAX_SIZE":      "25MB",
+				"UPLOAD_USER_MAX_SIZE": "100MB",
 				"UPLOAD_EXPIRES_IN":    "0",
 			},
 			want: &Config{
@@ -113,8 +113,8 @@ func TestNewConfig(t *testing.T) {
 				Env:               "development",
 				BaseURL:           "http://localhost",
 				UploadDirectory:   "./uploads",
-				MaxUploadSize:     25 * 1024 * 1024,
-				MaxUserUploadSize: 100 * 1024 * 1024,
+				UploadMaxSize:     25 * 1024 * 1024,
+				UploadUserMaxSize: 100 * 1024 * 1024,
 				UploadExpiresIn:   0,
 			},
 			wantErr: false,
@@ -182,7 +182,7 @@ func Test_parseMaxUploadSize(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, err := parseMaxUploadSize(tt.size)
+			got, err := parseUploadMaxSize(tt.size)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("parseMaxUploadSize() error = %v, wantErr %v", err, tt.wantErr)
 				return

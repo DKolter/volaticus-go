@@ -75,8 +75,8 @@ func (s *service) VerifyFile(ctx context.Context, file multipart.File, header *m
 	}
 
 	// Check file size
-	if header.Size > s.config.MaxUploadSize {
-		result.Error = "File too large (max 100MB)"
+	if header.Size > s.config.UploadMaxSize {
+		result.Error = "File too large"
 		return result
 	}
 
@@ -88,7 +88,7 @@ func (s *service) VerifyFile(ctx context.Context, file multipart.File, header *m
 	}
 
 	// Check user upload limit
-	if stats.TotalSize+header.Size > s.config.MaxUserUploadSize {
+	if stats.TotalSize+header.Size > s.config.UploadUserMaxSize {
 		result.Error = "User upload limit reached"
 		return result
 	}

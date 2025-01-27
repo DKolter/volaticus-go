@@ -15,8 +15,8 @@ type Config struct {
 	Env               string // Environment (dev | prod)
 	BaseURL           string // Base URL for the server
 	UploadDirectory   string // Directory to store uploaded files
-	MaxUploadSize     int64  // Maximum upload size in bytes
-	MaxUserUploadSize int64  // Maximum upload size per user in bytes
+	UploadMaxSize     int64  // Maximum upload size in bytes
+	UploadUserMaxSize int64  // Maximum upload size per user in bytes
 	UploadExpiresIn   int    // Upload expiration time in hours
 }
 
@@ -26,8 +26,8 @@ func (c *Config) String() {
 		Str("env", c.Env).
 		Str("base_url", c.BaseURL).
 		Str("upload_dir", c.UploadDirectory).
-		Int64("max_upload_size", c.MaxUploadSize).
-		Int64("max_user_upload_size", c.MaxUserUploadSize).
+		Int64("upload_max_size", c.UploadMaxSize).
+		Int64("upload_user_max_size", c.UploadUserMaxSize).
 		Int("upload_expires_in", c.UploadExpiresIn).
 		Msg("server configuration")
 }
@@ -61,23 +61,23 @@ func NewConfig() (*Config, error) {
 		uploadDirectory = "./uploads"
 	}
 
-	maxUploadSizeStr := os.Getenv("MAX_UPLOAD_SIZE")
-	if maxUploadSizeStr == "" {
-		maxUploadSizeStr = "25MB" // Default value
+	uploadMaxSizeStr := os.Getenv("UPLOAD_MAX_SIZE")
+	if uploadMaxSizeStr == "" {
+		uploadMaxSizeStr = "25MB" // Default value
 	}
-	maxUploadSize, err := parseMaxUploadSize(maxUploadSizeStr)
+	uploadMaxSize, err := parseUploadMaxSize(uploadMaxSizeStr)
 	if err != nil {
-		log.Error().Err(err).Msg("invalid MAX_UPLOAD_SIZE configuration")
+		log.Error().Err(err).Msg("invalid UPLOAD_MAX_SIZE configuration")
 		return nil, err
 	}
 
-	maxUserUploadSizeStr := os.Getenv("MAX_USER_UPLOAD_SIZE")
-	if maxUserUploadSizeStr == "" {
-		maxUserUploadSizeStr = "100MB" // Default value
+	uploadUserMaxSizeStr := os.Getenv("UPLOAD_USER_MAX_SIZE")
+	if uploadUserMaxSizeStr == "" {
+		uploadUserMaxSizeStr = "100MB" // Default value
 	}
-	maxUserUploadSize, err := parseMaxUploadSize(maxUserUploadSizeStr)
+	uploadUserMaxSize, err := parseUploadMaxSize(uploadUserMaxSizeStr)
 	if err != nil {
-		log.Error().Err(err).Msg("invalid MAX_USER_UPLOAD_SIZE configuration")
+		log.Error().Err(err).Msg("invalid UPLOAD_USER_MAX_SIZE configuration")
 		return nil, err
 	}
 
@@ -97,32 +97,32 @@ func NewConfig() (*Config, error) {
 		Env:               env,
 		BaseURL:           baseURL,
 		UploadDirectory:   uploadDirectory,
-		MaxUploadSize:     maxUploadSize,
-		MaxUserUploadSize: maxUserUploadSize,
+		UploadMaxSize:     uploadMaxSize,
+		UploadUserMaxSize: uploadUserMaxSize,
 		UploadExpiresIn:   uploadExpiresIn,
 	}, nil
 }
 
-// parseMaxUploadSize parses the MAX_UPLOAD_SIZE environment variable
+// parseUploadMaxSize parses the MAX_UPLOAD_SIZE environment variable
 // Value is expected to be postfixed with "MB" for megabytes or "GB" for gigabytes, e.g. "100MB"
 // If no postfix is provided, the value is assumed to be in megabytes
-func parseMaxUploadSize(size string) (int64, error) {
+func parseUploadMaxSize(size string) (int64, error) {
 	if strings.HasSuffix(size, "GB") {
 		value, err := strconv.ParseInt(strings.TrimSuffix(size, "GB"), 10, 64)
 		if err != nil {
-			return 0, fmt.Errorf("invalid MAX_UPLOAD_SIZE: %w", err)
+			return 0, fmt.Errorf("invalid UPLOAD_MAX_SIZE: %w", err)
 		}
 		return value * 1024 * 1024 * 1024, nil
 	} else if strings.HasSuffix(size, "MB") {
 		value, err := strconv.ParseInt(strings.TrimSuffix(size, "MB"), 10, 64)
 		if err != nil {
-			return 0, fmt.Errorf("invalid MAX_UPLOAD_SIZE: %w", err)
+			return 0, fmt.Errorf("invalid UPLOAD_MAX_SIZE: %w", err)
 		}
 		return value * 1024 * 1024, nil
 	} else {
 		value, err := strconv.ParseInt(size, 10, 64)
 		if err != nil {
-			return 0, fmt.Errorf("invalid MAX_UPLOAD_SIZE: %w", err)
+			return 0, fmt.Errorf("invalid UPLOAD_MAX_SIZE: %w", err)
 		}
 		return value * 1024 * 1024, nil
 	}
