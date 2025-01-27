@@ -10,6 +10,7 @@ import (
 	"time"
 	"volaticus-go/internal/common/models"
 	"volaticus-go/internal/config"
+	userctx "volaticus-go/internal/context"
 	"volaticus-go/internal/storage"
 
 	"github.com/google/uuid"
@@ -167,8 +168,35 @@ func (s *service) ValidateFile(ctx context.Context, file multipart.File, header 
 		FileSize: header.Size,
 	}
 
+	// Check individual file size
 	if header.Size > s.config.UploadMaxSize {
 		result.Error = fmt.Sprintf("File too large (max %d MB)", s.config.UploadMaxSize/1024/1024)
+		return result
+	}
+
+	// Get user from context
+	user := userctx.GetUserFromContext(ctx)
+	if user == nil {
+		result.Error = "Unauthorized access"
+		return result
+	}
+
+	// Get user's current storage usage
+	stats, err := s.repo.GetFileStats(ctx, user.ID)
+	if err != nil {
+		result.Error = "Error checking storage quota"
+		return result
+	}
+
+	// Check if this upload would exceed user quota
+	if stats.TotalSize+header.Size > s.config.UploadUserQuota {
+		result.Error = fmt.Sprintf("Upload would exceed your storage quota of %s", formatSize(s.config.UploadUserQuota))
+		log.Warn().
+			Str("user_id", user.ID.String()).
+			Int64("current_size", stats.TotalSize).
+			Int64("upload_size", header.Size).
+			Int64("quota", s.config.UploadUserQuota).
+			Msg("Upload would exceed user quota")
 		return result
 	}
 
@@ -187,6 +215,19 @@ func (s *service) ValidateFile(ctx context.Context, file multipart.File, header 
 	result.ContentType = http.DetectContentType(buff)
 	result.IsValid = true
 	return result
+}
+
+func formatSize(size int64) string {
+	const unit = 1024
+	if size < unit {
+		return fmt.Sprintf("%d B", size)
+	}
+	div, exp := int64(unit), 0
+	for n := size / unit; n >= unit; n /= unit {
+		div *= unit
+		exp++
+	}
+	return fmt.Sprintf("%.1f %cB", float64(size)/float64(div), "KMGTPE"[exp])
 }
 
 // GetUserFiles retrieves all files for a user

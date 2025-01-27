@@ -172,7 +172,7 @@ func (h *Handler) HandleServeFile(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	file, err := h.service.GetFile(r.Context(), urlvalue)
+	file, err := h.service.GetFile(r.Context(), urlValue)
 	if err != nil {
 		if errors.Is(err, ErrNoRows) {
 			http.Error(w, "File not found", http.StatusNotFound)
@@ -252,19 +252,40 @@ func (h *Handler) HandleAPIUpload(w http.ResponseWriter, r *http.Request) {
 	log.Info().
 		Str("remoteAddr", r.RemoteAddr).
 		Msg("API Upload request from")
+
 	// Get user from context
 	userContext := userctx.GetUserFromContext(r.Context())
-	log.Info().
-		Interface("userContext", userContext).
-		Msg("User context")
 	if userContext == nil {
 		sendAPIResponse(w, http.StatusUnauthorized, false, "", errors.New("unauthorized"))
 		return
 	}
 
-	// Check content length against max size before reading the file
+	// Check content length against max size
 	if r.ContentLength > h.service.config.UploadMaxSize {
 		sendAPIResponse(w, http.StatusRequestEntityTooLarge, false, "", ErrFileTooLarge)
+		return
+	}
+
+	// Check current storage usage against quota
+	stats, err := h.service.repo.GetFileStats(r.Context(), userContext.ID)
+	if err != nil {
+		log.Error().
+			Err(err).
+			Str("user_id", userContext.ID.String()).
+			Msg("Failed to get user storage stats")
+		sendAPIResponse(w, http.StatusInternalServerError, false, "", errors.New("failed to check storage quota"))
+		return
+	}
+
+	// Check if this upload would exceed quota
+	if stats.TotalSize+r.ContentLength > h.service.config.UploadUserQuota {
+		log.Warn().
+			Str("user_id", userContext.ID.String()).
+			Int64("current_size", stats.TotalSize).
+			Int64("upload_size", r.ContentLength).
+			Int64("quota", h.service.config.UploadUserQuota).
+			Msg("Upload would exceed user quota")
+		sendAPIResponse(w, http.StatusBadRequest, false, "", fmt.Errorf("upload would exceed your storage quota of %s", formatSize(h.service.config.UploadUserQuota)))
 		return
 	}
 
@@ -286,12 +307,6 @@ func (h *Handler) HandleAPIUpload(w http.ResponseWriter, r *http.Request) {
 		}
 	}(file)
 
-	// Validate file size again after reading the header
-	if header.Size > h.service.config.UploadMaxSize {
-		sendAPIResponse(w, http.StatusRequestEntityTooLarge, false, "", ErrFileTooLarge)
-		return
-	}
-
 	// Parse URL type from header
 	urlType := URLTypeDefault
 	if typeHeader := r.Header.Get("Url-Type"); typeHeader != "" {
@@ -312,7 +327,6 @@ func (h *Handler) HandleAPIUpload(w http.ResponseWriter, r *http.Request) {
 
 	uploadedFile, err := h.service.UploadFile(r.Context(), uploadReq)
 	if err != nil {
-		// Log the internal error but don't send it to the client
 		log.Error().
 			Err(err).
 			Msg("Upload error")

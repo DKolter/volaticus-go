@@ -4,13 +4,14 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"github.com/rs/zerolog/log"
 	"net/http"
 	"time"
 	"volaticus-go/internal/config"
 	"volaticus-go/internal/dashboard"
 	"volaticus-go/internal/shortener"
 	"volaticus-go/internal/storage"
+
+	"github.com/rs/zerolog/log"
 
 	_ "github.com/joho/godotenv/autoload"
 
@@ -52,7 +53,7 @@ func NewServer(config *config.Config, db *database.DB) (*Server, error) {
 	// Initialize repositories
 	userRepo := user.NewRepository(db)
 	tokenRepo := auth.NewRepository(db)
-	fileRepo := uploader.NewRepository(db)
+	fileRepo := uploader.NewRepository(db, *config)
 	shortenerRepo := shortener.NewRepository(db)
 	dashboardRepo := dashboard.NewRepository(db)
 

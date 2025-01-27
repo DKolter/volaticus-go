@@ -8,15 +8,19 @@ import (
 templ FileStatsComponent(stats *models.FileStats) {
 	<!-- Stats Overview -->
 	<div class="grid grid-cols-1 md:grid-cols-4 gap-4">
-		<div class="bg-gray-800 rounded-lg p-4 shadow">
+		<!-- Total Files -->
+		<div class="bg-gray-800 rounded-lg p-4 shadow-lg border border-gray-700 hover:bg-gray-700/50 transition-all duration-200">
 			<div class="text-sm text-gray-400">Total Files</div>
-			<div class="text-2xl text-white">{ fmt.Sprint(stats.TotalFiles) }</div>
+			<div class="text-2xl text-white font-semibold">{ fmt.Sprint(stats.TotalFiles) }</div>
 		</div>
-		<div class="bg-gray-800 rounded-lg p-4 shadow">
+		<!-- Total Size with Quota -->
+		<div class="bg-gray-800 rounded-lg p-4 shadow-lg border border-gray-700 hover:bg-gray-700/50 transition-all duration-200">
 			<div class="text-sm text-gray-400">Total Size</div>
-			<div class="text-2xl text-white">{ formatSize(stats.TotalSize) }</div>
+			<div class="text-2xl text-white font-semibold">{ formatSize(stats.TotalSize) }</div>
+			<div class="text-xs text-gray-400 mt-1">out of { formatSize(stats.StorageQuota) }</div>
 		</div>
-		<div class="bg-gray-800 rounded-lg p-4 shadow">
+		<!-- Popular Types -->
+		<div class="bg-gray-800 rounded-lg p-4 shadow-lg border border-gray-700 hover:bg-gray-700/50 transition-all duration-200">
 			<div class="text-sm text-gray-400">Popular Types</div>
 			<div class="mt-1">
 				for i, t := range stats.PopularTypes {
@@ -28,9 +32,10 @@ templ FileStatsComponent(stats *models.FileStats) {
 				}
 			</div>
 		</div>
-		<div class="bg-gray-800 rounded-lg p-4 shadow">
+		<!-- Total Views -->
+		<div class="bg-gray-800 rounded-lg p-4 shadow-lg border border-gray-700 hover:bg-gray-700/50 transition-all duration-200">
 			<div class="text-sm text-gray-400">Total Views</div>
-			<div class="text-2xl text-white">
+			<div class="text-2xl text-white font-semibold">
 				{ fmt.Sprintf("%d",stats.TotalViews) }
 			</div>
 		</div>

@@ -3,11 +3,13 @@ package uploader
 import (
 	"context"
 	"fmt"
+
 	"github.com/rs/zerolog/log"
 
 	"testing"
 	"time"
 	"volaticus-go/internal/common/models"
+	"volaticus-go/internal/config"
 	"volaticus-go/internal/database"
 	"volaticus-go/internal/database/migrate"
 
@@ -143,8 +145,9 @@ func createTestFile(ctx context.Context, repo Repository, userID uuid.UUID) (*mo
 func TestRepository_CreateWithURL(t *testing.T) {
 	db := setupTestDB(t)
 	defer db.Close()
+	cfg := config.Config{UploadUserQuota: 1024 * 1024 * 10} // 10 MB
 
-	repo := NewRepository(db)
+	repo := NewRepository(db, cfg)
 	ctx := context.Background()
 
 	// Create test user
@@ -204,8 +207,9 @@ func TestRepository_CreateWithURL(t *testing.T) {
 func TestRepository_GetByUniqueFilename(t *testing.T) {
 	db := setupTestDB(t)
 	defer db.Close()
+	cfg := config.Config{UploadUserQuota: 1024 * 1024 * 10} // 10 MB
 
-	repo := NewRepository(db)
+	repo := NewRepository(db, cfg)
 	ctx := context.Background()
 
 	userID, err := createTestUser(ctx, db)
@@ -233,8 +237,9 @@ func TestRepository_GetByUniqueFilename(t *testing.T) {
 func TestRepository_GetFileStats(t *testing.T) {
 	db := setupTestDB(t)
 	defer db.Close()
+	cfg := config.Config{UploadUserQuota: 1024 * 1024 * 10} // 10 MB
 
-	repo := NewRepository(db)
+	repo := NewRepository(db, cfg)
 	ctx := context.Background()
 
 	userID, err := createTestUser(ctx, db)
@@ -278,8 +283,9 @@ func TestRepository_GetFileStats(t *testing.T) {
 func TestRepository_DeleteFile(t *testing.T) {
 	db := setupTestDB(t)
 	defer db.Close()
+	cfg := config.Config{UploadUserQuota: 1024 * 1024 * 10} // 10 MB
 
-	repo := NewRepository(db)
+	repo := NewRepository(db, cfg)
 	ctx := context.Background()
 
 	userID, err := createTestUser(ctx, db)
@@ -307,8 +313,9 @@ func TestRepository_DeleteFile(t *testing.T) {
 func TestRepository_IncrementAccessCount(t *testing.T) {
 	db := setupTestDB(t)
 	defer db.Close()
+	cfg := config.Config{UploadUserQuota: 1024 * 1024 * 10} // 10 MB
 
-	repo := NewRepository(db)
+	repo := NewRepository(db, cfg)
 	ctx := context.Background()
 
 	userID, err := createTestUser(ctx, db)
@@ -334,8 +341,9 @@ func TestRepository_IncrementAccessCount(t *testing.T) {
 func TestRepository_GetUserFiles(t *testing.T) {
 	db := setupTestDB(t)
 	defer db.Close()
+	cfg := config.Config{UploadUserQuota: 1024 * 1024 * 10} // 10 MB
 
-	repo := NewRepository(db)
+	repo := NewRepository(db, cfg)
 	ctx := context.Background()
 
 	userID, err := createTestUser(ctx, db)
