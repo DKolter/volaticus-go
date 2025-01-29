@@ -52,23 +52,12 @@ CMD ["make","watch"]
 # Production stage
 FROM alpine:3.20.1 AS prod
 
-# Create volaticus user and group
-RUN addgroup -S volaticus && \
-    adduser -S volaticus -G volaticus
-
 WORKDIR /app
 
 # Copy binary and data files
 COPY --from=build /app/volaticus /app/volaticus
 COPY --from=build /app/GeoLite2-City.mmdb /app/GeoLite2-City.mmdb
 
-# Set permissions
-RUN chmod 755 /app/volaticus && \
-    chmod 644 /app/GeoLite2-City.mmdb && \
-    chown -R volaticus:volaticus /app
-
-# Switch to volaticus user
-USER volaticus
 
 EXPOSE ${PORT}
 CMD ["./volaticus"]
