@@ -46,8 +46,6 @@ RUN go mod download && \
     addgroup -S volaticus && \
     adduser -S volaticus -G volaticus
 
-USER volaticus
-
 # The rest of the source code will be mounted as a volume
 CMD ["make","watch"]
 
