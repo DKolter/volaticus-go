@@ -102,11 +102,9 @@ templ Base() {
             </script>
 			<script>
                 document.addEventListener("htmx:confirm", function(e) {
-                    console.log("htmx:confirm event triggered");
                     // Check if the element that triggered the request has a hx-confirm attribute
                     if (!e.detail.target.hasAttribute('hx-confirm')) return;
 
-                    console.log("hx-confirm attribute found");
                     // Prevent the default behavior
                     e.preventDefault();
 

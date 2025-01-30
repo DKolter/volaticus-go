@@ -1,13 +1,16 @@
 package server
 
 import (
-	"github.com/rs/zerolog/log"
 	"net/http"
+	"time"
 	"volaticus-go/cmd/web"
+
+	"github.com/rs/zerolog/log"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
 	"github.com/go-chi/cors"
+	"github.com/go-chi/httprate"
 	"github.com/go-chi/jwtauth/v5"
 )
 
@@ -33,6 +36,17 @@ func (s *Server) RegisterRoutes() http.Handler {
 		AllowCredentials: true,
 		MaxAge:           300,
 	}))
+
+	// Set up Rate Limiting
+	r.Use(httprate.Limit(
+		100,
+		time.Minute,
+		httprate.WithKeyFuncs(httprate.KeyByIP, httprate.KeyByEndpoint),
+
+		httprate.WithLimitHandler(func(w http.ResponseWriter, r *http.Request) {
+			http.Error(w, `{"error": "Rate-limited. Please, slow down."}`, http.StatusTooManyRequests)
+		}),
+	))
 
 	// Serve static files
 	fileServer := http.FileServer(http.FS(web.Files)) // embedded in binary
@@ -79,8 +93,18 @@ func (s *Server) RegisterRoutes() http.Handler {
 
 		// Upload routes
 		r.Route("/upload", func(r chi.Router) {
-			r.Get("/", s.handleUpload)
+			// 100 Uploads per IP per minute
+			r.Use(httprate.Limit(
+				100,
+				time.Minute,
+				httprate.WithKeyFuncs(httprate.KeyByIP, httprate.KeyByEndpoint),
+
+				httprate.WithLimitHandler(func(w http.ResponseWriter, r *http.Request) {
+					http.Error(w, `{"error": "Too many uploads!."}`, http.StatusTooManyRequests)
+				}),
+			))
 			r.Post("/", s.fileHandler.HandleUpload)
+			r.Get("/", s.handleUpload)
 			r.Post("/verify", s.fileHandler.HandleVerifyFile)
 		})
 
@@ -119,8 +143,19 @@ func (s *Server) RegisterRoutes() http.Handler {
 		// All API routes will require token auth
 		r.Use(s.APITokenAuthMiddleware)
 
+		r.Use(httprate.Limit(
+			100,
+			time.Minute,
+			httprate.WithKeyFuncs(httprate.KeyByIP, httprate.KeyByEndpoint),
+
+			httprate.WithLimitHandler(func(w http.ResponseWriter, r *http.Request) {
+				http.Error(w, `{"error": "Too many requests!."}`, http.StatusTooManyRequests)
+			}),
+		))
+
 		// Upload endpoint
 		r.Post("/api/v1/upload", func(w http.ResponseWriter, r *http.Request) {
+
 			log.Info().
 				Str("path", r.URL.Path).
 				Msg("api upload request received")
