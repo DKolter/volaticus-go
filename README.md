@@ -45,7 +45,59 @@ A modern, secure file sharing and URL shortening platform built with Go.
 
 ## 💻 Installation
 
-### Docker (Recommended)
+### Quick Deploy with Docker Compose (Recommended)
+
+1. Create a new directory and navigate to it:
+
+```bash
+mkdir volaticus && cd volaticus
+```
+
+2. Download the compose file:
+
+```bash
+curl -o compose.yml https://raw.githubusercontent.com/DKolter/volaticus-go/main/compose.example.yml
+```
+
+3. Create a `.env` file with a secure random secret:
+
+```bash
+cat > .env << 'EOL'
+# Server configuration
+PORT=8080
+APP_ENV=production
+BASE_URL=http://localhost:8080
+
+# Database configuration
+DB_HOST=db
+DB_PORT=5432
+DB_DATABASE=volaticus_db
+DB_USERNAME=volaticus_service
+DB_PASSWORD=change_this_password
+DB_SCHEMA=public
+
+# File upload configuration
+MAX_UPLOAD_SIZE=150MB
+UPLOAD_EXPIRES_IN=24h
+
+# Storage configuration
+STORAGE_PROVIDER=local
+UPLOAD_DIR=./uploads
+EOL
+
+# Generate and append a secure secret
+echo "SECRET=$(openssl rand -base64 32)" >> .env
+```
+
+4. Start the services:
+
+```bash
+docker compose up -d
+```
+
+The application will be available at http://localhost:8080.
+
+### Build Docker Image from Source
 
 1. Clone the repository:
 
@@ -149,7 +201,7 @@ Additional make commands:
 - `make clean`: Clean build files
 - `make docker-down`: Stop Docker containers
 
-## 🔧 NGINX Configuration
+## 🔧 NGINX Reverse Proxy Configuration
 
 Example NGINX configuration for reverse proxy:
 
@@ -282,6 +334,71 @@ We welcome contributions! Here's how you can help:
 3. Commit changes: `git commit -m 'Add amazing feature'`
 4. Push to branch: `git push origin feature/amazing-feature`
 5. Open a Pull Request
+
+### Development Environment
+
+For development, we provide a specialized Docker Compose setup that includes:
+
+- Live reload for Go code changes
+- GCS (Google Cloud Storage) emulator for local development
+- PostgreSQL with persistent storage
+- Development-specific logging and configurations
+
+1. Clone the repository:
+
+```bash
+git clone https://github.com/DKolter/volaticus-go.git
+cd volaticus
+```
+
+2. Create a development `.env` file:
+
+```bash
+cat > .env << 'EOL'
+# Server configuration
+PORT=8080
+APP_ENV=development
+BASE_URL=http://localhost:8080
+
+# Database configuration
+DB_HOST=psql
+DB_PORT=5432
+DB_DATABASE=volaticus_db
+DB_USERNAME=volaticus_service
+DB_PASSWORD=dev_password
+DB_SCHEMA=public
+
+# File upload configuration
+MAX_UPLOAD_SIZE=150MB
+UPLOAD_USER_MAX_SIZE=150MB
+UPLOAD_EXPIRES_IN=24h
+UPLOAD_DIR=./uploads
+
+# GCS Emulator settings
+STORAGE_PROVIDER=gcs
+GCS_PROJECT_ID=test-project
+GCS_BUCKET_NAME=test-bucket
+EOL
+
+# Generate and append a secure secret
+echo "SECRET=$(openssl rand -base64 32)" >> .env
+```
+
+3. Use the provided Make commands to manage the development environment:
+
+```bash
+# Start the development environment
+make dev-up
+
+# View logs in real-time
+make dev-logs
+
+# Stop the environment
+make dev-down
+
+# Clean up volumes and containers
+make dev-clean
+```
 
 ### Development Guidelines
 

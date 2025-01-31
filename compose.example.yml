@@ -1,0 +1,56 @@
+name: volaticus
+services:
+  app:
+    image: ghcr.io/dkolter/volaticus-go:latest
+    restart: unless-stopped
+    ports:
+      - ${PORT}:${PORT}
+    environment:
+      APP_ENV: ${APP_ENV}
+      PORT: ${PORT}
+      DB_HOST: psql
+      DB_PORT: 5432
+      DB_DATABASE: ${DB_DATABASE}
+      DB_USERNAME: ${DB_USERNAME}
+      DB_PASSWORD: ${DB_PASSWORD}
+      DB_SCHEMA: ${DB_SCHEMA}
+      SECRET: ${SECRET}
+      BASE_URL: ${BASE_URL}
+      STORAGE_PROVIDER: ${STORAGE_PROVIDER}
+      UPLOAD_DIR: ${UPLOAD_DIR}
+      UPLOAD_MAX_SIZE: ${UPLOAD_MAX_SIZE}
+      UPLOAD_USER_MAX_SIZE: ${UPLOAD_USER_MAX_SIZE}
+      UPLOAD_EXPIRES_IN: ${UPLOAD_EXPIRES_IN}
+      GCS_PROJECT_ID: ${GCS_PROJECT_ID}
+      GCS_BUCKET_NAME: ${GCS_BUCKET_NAME}
+      GOOGLE_CLOUD_CREDENTIALS: ${GOOGLE_CLOUD_CREDENTIALS}
+    depends_on:
+      psql:
+        condition: service_healthy
+    volumes:
+      - ./data:${UPLOAD_DIR}
+    networks:
+      - volaticus_network
+
+  psql:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${DB_DATABASE}
+      POSTGRES_USER: ${DB_USERNAME}
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+    volumes:
+      - psql_volume:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $DB_USERNAME -d $DB_DATABASE"]
+      interval: 5s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
+    networks:
+      - volaticus_network
+
+volumes:
+  psql_volume:
+networks:
+  volaticus_network:
