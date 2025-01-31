@@ -77,12 +77,21 @@ DB_PASSWORD=change_this_password
 DB_SCHEMA=public
 
 # File upload configuration
-MAX_UPLOAD_SIZE=150MB
-UPLOAD_EXPIRES_IN=24h
+UPLOAD_MAX_SIZE=150MB
+UPLOAD_USER_MAX_SIZE=500MB
+UPLOAD_EXPIRES_IN=24
 
 # Storage configuration
 STORAGE_PROVIDER=local
-UPLOAD_DIR=./uploads
+UPLOAD_DIR=/app/uploads # mounted
+
+# GCS settings (if STORAGE_PROVIDER=gcs)
+GCS_PROJECT_ID=
+GCS_BUCKET_NAME=
+
+# Optional: Base64 encoded service account credentials
+# Only needed if not using Workload Identity or running outside GCP
+# GOOGLE_CLOUD_CREDENTIALS=<base64-encoded-service-account-json>
 EOL
 
 # Generate and append a secure secret
@@ -132,8 +141,9 @@ DB_SCHEMA=public
 SECRET=your-secret-
 
 # File upload configuration
-MAX_UPLOAD_SIZE=150MB
-UPLOAD_EXPIRES_IN=24h
+UPLOAD_MAX_SIZE=150MB
+UPLOAD_USER_MAX_SIZE=500MB
+UPLOAD_EXPIRES_IN=24
 
 # Storage configuration
 STORAGE_PROVIDER=local  # or 'gcs'
@@ -417,6 +427,6 @@ make dev-clean
 5. Get approval from maintainers
 
 [Installation]: #-installation
-[Documentation]: #-nginx-configuration
+[Documentation]: #-nginx-reverse-proxy-configuration
 [Features]: #-features
 [Contribution]: #-contributing
