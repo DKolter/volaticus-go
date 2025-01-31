@@ -50,7 +50,7 @@ A modern, secure file sharing and URL shortening platform built with Go.
 1. Clone the repository:
 
 ```bash
-git clone https://github.com/yourusername/volaticus.git
+git clone https://github.com/DKolter/volaticus-go.git
 cd volaticus
 ```
 
@@ -109,7 +109,6 @@ docker compose up -d
 Requirements:
 
 - Go 1.23 or higher
-- PostgreSQL
 
 1. Clone and setup:
 
@@ -127,7 +126,7 @@ make dev-install
 
 3. Download Maxmind Geo-IP database, if you want to enable Geographic tracking
 
-```
+```bash
 curl -L -o GeoLite2-City.mmdb https://github.com/P3TERX/GeoLite.mmdb/raw/download/GeoLite2-City.mmdb
 ```
 
