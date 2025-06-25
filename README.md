@@ -43,6 +43,23 @@ A modern, secure file sharing and URL shortening platform built with Go.
 - 🚀 HTMX-powered interactions
 - 📊 Structured logging with environment-aware log levels
 
+### Screenshots
+
+<details>
+<summary>View all screenshots</summary>
+
+    
+**My Files**
+![My Files](https://i.imgur.com/D4NNSjp.png)
+    
+**URL Shortener**
+![URL Shortener](https://i.imgur.com/xNkNl32.png)
+
+**File Upload**
+![File Upload](https://i.imgur.com/F1W2sV8.png)
+
+</details>
+
 ## 💻 Installation
 
 ### Quick Deploy with Docker Compose (Recommended)
